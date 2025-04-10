@@ -20,8 +20,12 @@ class UserController {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
   
-        // Insert new user
-        const insertQuery = `INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role`;
+        // Insert new user with created_at timestamp
+        const insertQuery = `
+          INSERT INTO users (name, email, password, role, created_at) 
+          VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) 
+          RETURNING id, name, email, role, created_at
+        `;
         const result = await User.query(insertQuery, [name, email, hashedPassword, role]);
         
         // Generate JWT token
@@ -40,7 +44,8 @@ class UserController {
             id: result.rows[0].id,
             name: result.rows[0].name,
             email: result.rows[0].email,
-            role: result.rows[0].role
+            role: result.rows[0].role,
+            created_at: result.rows[0].created_at
           },
           token
         });
@@ -107,23 +112,54 @@ class UserController {
   static async getUserById(req, res) {
     try {
       const { id } = req.params;
-      const selectQuery = `SELECT * FROM users WHERE id = $1`;
+      const selectQuery = `SELECT id, name, email, role FROM users WHERE id = $1`;
       const result = await User.query(selectQuery, [id]);
-      res.send(result.rows);
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      res.json(result.rows[0]);
     } catch (err) {
-      res.status(500).send(err);
+      console.error('Error fetching user:', err);
+      res.status(500).json({ message: 'Error fetching user', error: err.message });
     }
   }
 
   static async updateUser(req, res) {
     try {
       const { id } = req.params;
-      const { name, age } = req.body;
-      const updateQuery = `UPDATE users SET name = $1, age = $2 WHERE id = $3`;
-      await User.query(updateQuery, [name, age, id]);
-      res.send("Data updated successfully");
+      const { name, email, role } = req.body;
+
+      // Check if email is being updated and if it already exists
+      if (email) {
+        const checkQuery = `SELECT id FROM users WHERE email = $1 AND id != $2`;
+        const existingUser = await User.query(checkQuery, [email, id]);
+        
+        if (existingUser.rows.length > 0) {
+          return res.status(400).json({ message: 'Email already exists' });
+        }
+      }
+
+      const updateQuery = `
+        UPDATE users 
+        SET name = $1,
+            email = $2,
+            role = $3
+        WHERE id = $4 
+        RETURNING id, name, email, role, created_at
+      `;
+
+      const result = await User.query(updateQuery, [name, email, role, id]);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      res.json(result.rows[0]);
     } catch (err) {
-      res.status(500).send(err);
+      console.error('Error updating user:', err);
+      res.status(500).json({ message: 'Error updating user', error: err.message });
     }
   }
 
@@ -155,8 +191,12 @@ class UserController {
 
   static async updateUserProfile(req, res) {
     try {
-      const { name, email, password } = req.body;
+      const { name, email } = req.body;
       const userId = req.user.id;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
 
       // Check if email is being updated and if it already exists
       if (email) {
@@ -168,48 +208,24 @@ class UserController {
         }
       }
 
-      let updateQuery = 'UPDATE users SET ';
-      const queryParams = [];
-      let paramCount = 1;
+      // Update user profile
+      const updateQuery = `
+        UPDATE users 
+        SET name = $1,
+            email = $2
+        WHERE id = $3 
+        RETURNING id, name, email, role, created_at
+      `;
 
-      if (name) {
-        updateQuery += `name = $${paramCount}, `;
-        queryParams.push(name);
-        paramCount++;
-      }
-
-      if (email) {
-        updateQuery += `email = $${paramCount}, `;
-        queryParams.push(email);
-        paramCount++;
-      }
-
-      if (password) {
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-        updateQuery += `password = $${paramCount}, `;
-        queryParams.push(hashedPassword);
-        paramCount++;
-      }
-
-      // Remove trailing comma and space
-      updateQuery = updateQuery.slice(0, -2);
-      
-      // Add WHERE clause
-      updateQuery += ` WHERE id = $${paramCount} RETURNING id, name, email, role`;
-      queryParams.push(userId);
-
-      const result = await User.query(updateQuery, queryParams);
+      const result = await User.query(updateQuery, [name || null, email || null, userId]);
 
       if (result.rows.length === 0) {
         return res.status(404).json({ message: 'User not found' });
       }
 
-      res.json({
-        message: 'Profile updated successfully',
-        user: result.rows[0]
-      });
+      res.json(result.rows[0]);
     } catch (err) {
+      console.error('Error updating profile:', err);
       res.status(500).json({ message: 'Error updating profile', error: err.message });
     }
   }
