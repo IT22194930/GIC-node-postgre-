@@ -1,11 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const UserController = require('../../controllers/User/UserController');
+const auth = require('../../middleware/auth');
 
-router.post('/', UserController.createUser);
-router.get('/', UserController.getAllUsers);
-router.get('/:id', UserController.getUserById);
-router.put('/:id', UserController.updateUser);
-router.delete('/:id', UserController.deleteUser);
+// Public routes
+router.post('/register', UserController.register);
+router.post('/login', UserController.login);
+
+// Protected routes
+router.get('/', auth, UserController.getAllUsers);
+router.get('/:id', auth, UserController.getUserById);
+router.put('/:id', auth, UserController.updateUser);
+router.delete('/:id', auth, UserController.deleteUser);
 
 module.exports = router;
