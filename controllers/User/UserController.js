@@ -6,7 +6,7 @@ class UserController {
       const { name, age } = req.body;
       const insertQuery = `INSERT INTO users (name, age) VALUES ($1, $2) RETURNING id`;
       const result = await User.query(insertQuery, [name, age]);
-      res.send({ message: "Data inserted successfully", result });
+      res.send({ message: "Data inserted successfully" });
     } catch (err) {
       res.status(500).send(err);
     }
@@ -40,6 +40,17 @@ class UserController {
       const updateQuery = `UPDATE users SET name = $1, age = $2 WHERE id = $3`;
       await User.query(updateQuery, [name, age, id]);
       res.send("Data updated successfully");
+    } catch (err) {
+      res.status(500).send(err);
+    }
+  }
+
+  static async deleteUser(req, res) {
+    try {
+      const { id } = req.params;
+      const deleteQuery = `DELETE FROM users WHERE id = $1`;
+      await User.query(deleteQuery, [id]);
+      res.send("User deleted successfully"); 
     } catch (err) {
       res.status(500).send(err);
     }
