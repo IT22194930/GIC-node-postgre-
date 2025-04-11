@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { provinces, getDistricts } from '../utils/locationData';
+import organizationService from '../services/organizationService';
+import { toast } from 'react-toastify';
 
 const OrganizationForm = () => {
-  const navigate = useNavigate();
   const [districts, setDistricts] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [services, setServices] = useState([{
     serviceName: '',
     category: '',
@@ -102,35 +103,49 @@ const OrganizationForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Create form data for file upload
-    const formDataToSend = new FormData();
-    Object.keys(formData).forEach(key => {
-      if (key === 'organizationLogo' || key === 'profileImage') {
-        if (formData[key]) {
-          formDataToSend.append(key, formData[key]);
-        } else {
-          // If no file is selected, use the URL
-          formDataToSend.append(`${key}Url`, formData[`${key}Url`]);
-        }
-      } else if (key === 'personalDetails') {
-        formDataToSend.append(key, JSON.stringify(formData[key]));
-      } else if (!key.endsWith('Url')) { // Skip URL fields as they're handled with their corresponding file fields
-        formDataToSend.append(key, formData[key]);
-      }
-    });
-    formDataToSend.append('services', JSON.stringify(services));
-
     try {
-      const response = await fetch('/api/organizations', {
-        method: 'POST',
-        body: formDataToSend
-      });
+      setIsSubmitting(true);
 
-      if (response.ok) {
-        navigate('/dashboard');
+      // Validate form data
+      if (!formData.province || !formData.district || !formData.institutionName) {
+        toast.error('Please fill in all required organization details');
+        return;
       }
+
+      if (!formData.personalDetails.name || !formData.personalDetails.designation || 
+          !formData.personalDetails.email || !formData.personalDetails.contactNumber) {
+        toast.error('Please fill in all required personal details');
+        return;
+      }
+
+      if (!services[0].serviceName || !services[0].category || 
+          !services[0].description || !services[0].requirements) {
+        toast.error('Please fill in at least one service details');
+        return;
+      }
+
+      // Prepare data for submission
+      const organizationData = {
+        province: formData.province,
+        district: formData.district,
+        institutionName: formData.institutionName,
+        websiteUrl: formData.websiteUrl,
+        personalDetails: formData.personalDetails,
+        organizationLogo: formData.organizationLogo,
+        organizationLogoUrl: formData.organizationLogoUrl,
+        profileImage: formData.profileImage,
+        profileImageUrl: formData.profileImageUrl,
+        services: services
+      };
+
+      // Submit form
+      await organizationService.createOrganization(organizationData);
+      toast.success('Organization registered successfully!');
     } catch (error) {
-      console.error('Error submitting form:', error);
+      console.error('Submission error:', error);
+      toast.error(error.message || 'Error submitting organization details');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -342,9 +357,14 @@ const OrganizationForm = () => {
 
       <button
         type="submit"
-        className="w-full bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 transition-colors"
+        disabled={isSubmitting}
+        className={`w-full py-3 rounded-md transition-colors ${
+          isSubmitting 
+            ? 'bg-blue-400 cursor-not-allowed' 
+            : 'bg-blue-600 hover:bg-blue-700'
+        } text-white`}
       >
-        Submit Form
+        {isSubmitting ? 'Submitting...' : 'Submit Form'}
       </button>
     </form>
   );
