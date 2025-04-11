@@ -8,6 +8,7 @@ import UpdateProfile from '../pages/UpdateProfile';
 import AdminHome from '../pages/AdminHome';
 import ManageUsers from '../pages/ManageUsers';
 import EditUser from '../pages/EditUser';
+import ManageOrganizations from '../pages/ManageOrganizations';
 
 const AppRouter = () => {
   const { isAuthenticated, user } = useAuth();
@@ -29,6 +30,7 @@ const AppRouter = () => {
         <Route path="/update-profile" element={<UpdateProfile />} />
         <Route path="/users" element={<ManageUsers />} />
         <Route path="/users/edit/:id" element={<EditUser />} />
+        <Route path="/organizations" element={<ManageOrganizations />} />
       </Routes>
     </Router>
   );

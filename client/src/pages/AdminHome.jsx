@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { userService } from '../services/userService';
 
 const AdminHome = () => {
@@ -113,6 +113,25 @@ const AdminHome = () => {
                 </p>
                 <p className="text-sm text-gray-500 mt-2">Users active in last 7 days</p>
               </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Link
+                to="/users"
+                className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow"
+              >
+                <h2 className="text-xl font-semibold text-gray-800 mb-2">Manage Users</h2>
+                <p className="text-gray-600">View and manage user accounts</p>
+              </Link>
+
+              <Link
+                to="/organizations"
+                className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow"
+              >
+                <h2 className="text-xl font-semibold text-gray-800 mb-2">Manage Organizations</h2>
+                <p className="text-gray-600">Review and approve organization registrations</p>
+              </Link>
             </div>
           </div>
         </div>
