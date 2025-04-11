@@ -74,7 +74,7 @@ const AdminHome = () => {
                 </div>
                 <p className="text-3xl font-bold text-blue-600">
                   {loading ? (
-                    <div className="animate-pulse h-8 w-16 bg-gray-200 rounded"></div>
+                    <span className="animate-pulse h-8 w-16 bg-gray-200 rounded inline-block"></span>
                   ) : (
                     stats.totalUsers
                   )}
@@ -90,7 +90,7 @@ const AdminHome = () => {
                 </div>
                 <p className="text-3xl font-bold text-green-600">
                   {loading ? (
-                    <div className="animate-pulse h-8 w-16 bg-gray-200 rounded"></div>
+                    <span className="animate-pulse h-8 w-16 bg-gray-200 rounded inline-block"></span>
                   ) : (
                     stats.activeUsers
                   )}
@@ -106,7 +106,7 @@ const AdminHome = () => {
                 </div>
                 <p className="text-3xl font-bold text-purple-600">
                   {loading ? (
-                    <div className="animate-pulse h-8 w-16 bg-gray-200 rounded"></div>
+                    <span className="animate-pulse h-8 w-16 bg-gray-200 rounded inline-block"></span>
                   ) : (
                     stats.recentActivity
                   )}
