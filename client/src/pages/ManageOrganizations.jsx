@@ -5,6 +5,12 @@ import Navbar from '../components/Navbar';
 import organizationService from '../services/organizationService';
 import Swal from 'sweetalert2';
 
+// Create a custom event to notify the navbar about organization status changes
+const notifyPendingCountChange = () => {
+  const event = new CustomEvent('pendingCountChange');
+  window.dispatchEvent(event);
+};
+
 const ManageOrganizations = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
@@ -53,6 +59,8 @@ const ManageOrganizations = () => {
       if (result.isConfirmed) {
         await organizationService.updateOrganizationStatus(organizationId, newStatus);
         await fetchOrganizations();
+        // Notify that pending count might have changed
+        notifyPendingCountChange();
         Swal.fire(
           'Success!',
           `Organization has been ${newStatus}.`,
@@ -83,6 +91,8 @@ const ManageOrganizations = () => {
       if (result.isConfirmed) {
         await organizationService.deleteOrganization(organizationId);
         await fetchOrganizations();
+        // Notify that pending count might have changed
+        notifyPendingCountChange();
         Swal.fire(
           'Deleted!',
           'Organization has been deleted.',

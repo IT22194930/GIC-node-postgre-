@@ -1,12 +1,42 @@
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Swal from "sweetalert2";
+import organizationService from "../services/organizationService";
 
 const Navbar = () => {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [loadingCount, setLoadingCount] = useState(true);
+
+  useEffect(() => {
+    // Only fetch pending organizations count if user is admin
+    if (user?.role === "admin") {
+      fetchPendingOrganizationsCount();
+
+      // Add event listener for pending count changes
+      window.addEventListener("pendingCountChange", fetchPendingOrganizationsCount);
+
+      // Clean up event listener on unmount
+      return () => {
+        window.removeEventListener("pendingCountChange", fetchPendingOrganizationsCount);
+      };
+    }
+  }, [user]);
+
+  const fetchPendingOrganizationsCount = async () => {
+    try {
+      setLoadingCount(true);
+      const response = await organizationService.getAllOrganizations("pending");
+      setPendingCount(response.data.length);
+    } catch (error) {
+      console.error("Error fetching pending organizations count:", error);
+    } finally {
+      setLoadingCount(false);
+    }
+  };
 
   const handleLogout = () => {
     Swal.fire({
@@ -63,9 +93,14 @@ const Navbar = () => {
             {isAdmin && (
               <Link
                 to="/organizations"
-                className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium relative"
               >
                 Manage Organizations
+                {!loadingCount && pendingCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
+                    {pendingCount}
+                  </span>
+                )}
               </Link>
             )}
             <Link
@@ -184,10 +219,15 @@ const Navbar = () => {
             {isAdmin && (
               <Link
                 to="/organizations"
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 relative"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Manage Organizations
+                {!loadingCount && pendingCount > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                    {pendingCount}
+                  </span>
+                )}
               </Link>
             )}
             <Link

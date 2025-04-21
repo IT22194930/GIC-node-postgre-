@@ -3,6 +3,7 @@ import Navbar from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
 import { Navigate, Link } from 'react-router-dom';
 import { userService } from '../services/userService';
+import organizationService from '../services/organizationService';
 
 const AdminHome = () => {
   const { user } = useAuth();
@@ -11,11 +12,20 @@ const AdminHome = () => {
     activeUsers: 0,
     recentActivity: 0
   });
+  const [pendingOrgsCount, setPendingOrgsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchStats();
+    fetchPendingOrganizations();
+
+    // Listen for changes in pending organizations count
+    window.addEventListener('pendingCountChange', fetchPendingOrganizations);
+    
+    return () => {
+      window.removeEventListener('pendingCountChange', fetchPendingOrganizations);
+    };
   }, []);
 
   const fetchStats = async () => {
@@ -39,6 +49,15 @@ const AdminHome = () => {
       console.error('Error fetching stats:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPendingOrganizations = async () => {
+    try {
+      const response = await organizationService.getAllOrganizations("pending");
+      setPendingOrgsCount(response.data.length);
+    } catch (err) {
+      console.error('Error fetching pending organizations:', err);
     }
   };
 
@@ -192,8 +211,13 @@ const AdminHome = () => {
             
             <Link
               to="/organizations"
-              className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all border-b-4 border-green-500 group"
+              className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all border-b-4 border-green-500 group relative"
             >
+              {pendingOrgsCount > 0 && (
+                <span className="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center animate-pulse">
+                  {pendingOrgsCount}
+                </span>
+              )}
               <div className="flex items-start">
                 <div className="mr-4 bg-green-100 rounded-lg p-3 group-hover:bg-green-200 transition-colors">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -201,8 +225,19 @@ const AdminHome = () => {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">Manage Organizations</h3>
-                  <p className="text-gray-600 mb-4">Review, approve or reject organization registration requests</p>
+                  <div className="flex items-center">
+                    <h3 className="text-xl font-semibold text-gray-800 mb-2">Manage Organizations</h3>
+                    {pendingOrgsCount > 0 && (
+                      <span className="ml-2 bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
+                        {pendingOrgsCount} pending
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-gray-600 mb-4">
+                    {pendingOrgsCount > 0 
+                      ? `Review ${pendingOrgsCount} pending organization ${pendingOrgsCount === 1 ? 'request' : 'requests'}`
+                      : 'Review, approve or reject organization registration requests'}
+                  </p>
                   <div className="flex items-center text-green-600 font-medium group-hover:text-green-800">
                     <span>Go to Organizations</span>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
@@ -218,14 +253,14 @@ const AdminHome = () => {
       
       {/* Footer */}
       <div className="bg-gray-800 text-white py-6 mt-12">
-  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div className="flex justify-center">
-      <div>
-        <p className="text-gray-300 text-center">© {new Date().getFullYear()} GIC Admin Dashboard. All rights reserved.</p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-center">
+            <div>
+              <p className="text-gray-300 text-center">© {new Date().getFullYear()} GIC Admin Dashboard. All rights reserved.</p>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
-</div>
     </div>
   );
 };
