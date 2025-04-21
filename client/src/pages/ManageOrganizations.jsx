@@ -7,15 +7,24 @@ import Swal from 'sweetalert2';
 
 const ManageOrganizations = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState('pending');
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
-    fetchOrganizations();
-  }, [statusFilter]);
+    // Only fetch organizations if user is authenticated and is an admin
+    if (isAuthenticated && user?.role === 'admin') {
+      fetchOrganizations();
+    }
+    
+    // Set authChecked to true once we've checked authentication
+    if (isAuthenticated !== null) {
+      setAuthChecked(true);
+    }
+  }, [isAuthenticated, user, statusFilter]);
 
   const fetchOrganizations = async () => {
     try {
@@ -115,17 +124,29 @@ const ManageOrganizations = () => {
     navigate(`/organizations/${organizationId}`);
   };
 
-  // Check for authentication and admin role
-  if (!user || user.role !== 'admin') {
-    return <Navigate to="/" />;
-  }
-
-  if (loading) {
+  // Show loading indicator while checking authentication
+  if (!authChecked || (isAuthenticated && !user)) {
     return (
       <div className="min-h-screen bg-gray-100">
         <Navbar />
         <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <div className="text-center">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect if not authenticated or not admin
+  if (!isAuthenticated || user?.role !== 'admin') {
+    return <Navigate to="/" />;
+  }
+
+  if (loading && authChecked) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <Navbar />
+        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          <div className="text-center">Loading organizations...</div>
         </div>
       </div>
     );
