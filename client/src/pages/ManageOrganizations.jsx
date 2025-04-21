@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import organizationService from '../services/organizationService';
 import Swal from 'sweetalert2';
 
 const ManageOrganizations = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -92,22 +93,26 @@ const ManageOrganizations = () => {
     switch (currentStatus) {
       case 'pending':
         return [
-          { label: 'Approve', status: 'approved', color: 'green' },
-          { label: 'Reject', status: 'rejected', color: 'red' }
+          { label: 'Approve', status: 'approved', buttonClass: 'text-green-600 hover:text-green-900' },
+          { label: 'Reject', status: 'rejected', buttonClass: 'text-red-600 hover:text-red-900' }
         ];
       case 'approved':
         return [
-          { label: 'Move to Pending', status: 'pending', color: 'yellow' },
-          { label: 'Reject', status: 'rejected', color: 'red' }
+          { label: 'Move to Pending', status: 'pending', buttonClass: 'text-yellow-600 hover:text-yellow-900' },
+          { label: 'Reject', status: 'rejected', buttonClass: 'text-red-600 hover:text-red-900' }
         ];
       case 'rejected':
         return [
-          { label: 'Move to Pending', status: 'pending', color: 'yellow' },
-          { label: 'Approve', status: 'approved', color: 'green' }
+          { label: 'Move to Pending', status: 'pending', buttonClass: 'text-yellow-600 hover:text-yellow-900' },
+          { label: 'Approve', status: 'approved', buttonClass: 'text-green-600 hover:text-green-900' }
         ];
       default:
         return [];
     }
+  };
+
+  const handleRowClick = (organizationId) => {
+    navigate(`/organizations/${organizationId}`);
   };
 
   // Check for authentication and admin role
@@ -157,7 +162,11 @@ const ManageOrganizations = () => {
             <div className="block md:hidden">
               <div className="divide-y divide-gray-200">
                 {organizations.map((org) => (
-                  <div key={org.id} className="p-4">
+                  <div 
+                    key={org.id} 
+                    className="p-4 cursor-pointer hover:bg-gray-50"
+                    onClick={() => handleRowClick(org.id)}
+                  >
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="text-lg font-medium text-gray-900">{org.institution_name}</h3>
@@ -173,7 +182,10 @@ const ManageOrganizations = () => {
                           {org.status}
                         </span>
                         <button 
-                          onClick={() => handleDelete(org.id)} 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(org.id);
+                          }} 
                           className="mt-2 text-red-600 hover:text-red-900"
                           title="Delete organization"
                         >
@@ -187,8 +199,11 @@ const ManageOrganizations = () => {
                       {getStatusActions(org.status).map((action) => (
                         <button
                           key={action.status}
-                          onClick={() => handleStatusUpdate(org.id, action.status)}
-                          className={`text-${action.color}-600 hover:text-${action.color}-900 text-sm font-medium`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStatusUpdate(org.id, action.status);
+                          }}
+                          className={action.buttonClass}
                         >
                           {action.label}
                         </button>
@@ -215,7 +230,11 @@ const ManageOrganizations = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {organizations.map((org) => (
-                      <tr key={org.id}>
+                      <tr 
+                        key={org.id} 
+                        className="cursor-pointer hover:bg-gray-50"
+                        onClick={() => handleRowClick(org.id)}
+                      >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">{org.institution_name}</div>
                         </td>
@@ -235,18 +254,18 @@ const ManageOrganizations = () => {
                             {org.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2" onClick={(e) => e.stopPropagation()}>
                           {getStatusActions(org.status).map((action) => (
                             <button
                               key={action.status}
                               onClick={() => handleStatusUpdate(org.id, action.status)}
-                              className={`text-${action.color}-600 hover:text-${action.color}-900`}
+                              className={action.buttonClass}
                             >
                               {action.label}
                             </button>
                           ))}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                           <button 
                             onClick={() => handleDelete(org.id)} 
                             className="text-red-600 hover:text-red-900"

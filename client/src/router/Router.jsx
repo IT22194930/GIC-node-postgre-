@@ -9,6 +9,7 @@ import AdminHome from '../pages/AdminHome';
 import ManageUsers from '../pages/ManageUsers';
 import EditUser from '../pages/EditUser';
 import ManageOrganizations from '../pages/ManageOrganizations';
+import OrganizationDetail from '../pages/OrganizationDetail';
 
 const AppRouter = () => {
   const { isAuthenticated, user } = useAuth();
@@ -31,9 +32,10 @@ const AppRouter = () => {
         <Route path="/users" element={<ManageUsers />} />
         <Route path="/users/edit/:id" element={<EditUser />} />
         <Route path="/organizations" element={<ManageOrganizations />} />
+        <Route path="/organizations/:id" element={<OrganizationDetail />} />
       </Routes>
     </Router>
   );
 };
 
-export default AppRouter; 
+export default AppRouter;
