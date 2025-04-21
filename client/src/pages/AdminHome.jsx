@@ -12,19 +12,23 @@ const AdminHome = () => {
     activeUsers: 0,
     recentActivity: 0
   });
-  const [pendingOrgsCount, setPendingOrgsCount] = useState(0);
+  const [orgStats, setOrgStats] = useState({
+    pending: 0,
+    approved: 0,
+    rejected: 0
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchStats();
-    fetchPendingOrganizations();
+    fetchOrganizationStats();
 
-    // Listen for changes in pending organizations count
-    window.addEventListener('pendingCountChange', fetchPendingOrganizations);
+    // Listen for changes in organizations
+    window.addEventListener('pendingCountChange', fetchOrganizationStats);
     
     return () => {
-      window.removeEventListener('pendingCountChange', fetchPendingOrganizations);
+      window.removeEventListener('pendingCountChange', fetchOrganizationStats);
     };
   }, []);
 
@@ -52,12 +56,19 @@ const AdminHome = () => {
     }
   };
 
-  const fetchPendingOrganizations = async () => {
+  const fetchOrganizationStats = async () => {
     try {
-      const response = await organizationService.getAllOrganizations("pending");
-      setPendingOrgsCount(response.data.length);
+      const pendingResponse = await organizationService.getAllOrganizations("pending");
+      const approvedResponse = await organizationService.getAllOrganizations("approved");
+      const rejectedResponse = await organizationService.getAllOrganizations("rejected");
+      
+      setOrgStats({
+        pending: pendingResponse.data.length,
+        approved: approvedResponse.data.length,
+        rejected: rejectedResponse.data.length
+      });
     } catch (err) {
-      console.error('Error fetching pending organizations:', err);
+      console.error('Error fetching organization statistics:', err);
     }
   };
 
@@ -178,6 +189,91 @@ const AdminHome = () => {
           </div>
         </div>
 
+        {/* Organization Stats Cards */}
+        <div className="mb-12">
+          <div className="flex items-center mb-6">
+            <div className="bg-indigo-600 w-1 h-8 mr-4 rounded-full"></div>
+            <h2 className="text-2xl font-bold text-gray-800">Organization Status</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Pending Organizations Card */}
+            <div className="bg-white rounded-xl overflow-hidden shadow-lg transform transition-transform hover:scale-105 duration-300">
+              <div className="bg-yellow-500 h-2"></div>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800">Pending</h3>
+                  <div className="bg-yellow-100 rounded-full p-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="flex items-baseline">
+                  <p className="text-3xl font-bold text-yellow-600 mr-2">{orgStats.pending}</p>
+                  <p className="text-sm text-gray-500">organizations</p>
+                </div>
+                <Link to="/organizations?status=pending" className="mt-4 inline-flex items-center text-sm text-yellow-600 hover:text-yellow-800">
+                  Review pending requests
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
+            
+            {/* Approved Organizations Card */}
+            <div className="bg-white rounded-xl overflow-hidden shadow-lg transform transition-transform hover:scale-105 duration-300">
+              <div className="bg-green-500 h-2"></div>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800">Approved</h3>
+                  <div className="bg-green-100 rounded-full p-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="flex items-baseline">
+                  <p className="text-3xl font-bold text-green-600 mr-2">{orgStats.approved}</p>
+                  <p className="text-sm text-gray-500">organizations</p>
+                </div>
+                <Link to="/organizations?status=approved" className="mt-4 inline-flex items-center text-sm text-green-600 hover:text-green-800">
+                  View approved organizations
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
+            
+            {/* Rejected Organizations Card */}
+            <div className="bg-white rounded-xl overflow-hidden shadow-lg transform transition-transform hover:scale-105 duration-300">
+              <div className="bg-red-500 h-2"></div>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800">Rejected</h3>
+                  <div className="bg-red-100 rounded-full p-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="flex items-baseline">
+                  <p className="text-3xl font-bold text-red-600 mr-2">{orgStats.rejected}</p>
+                  <p className="text-sm text-gray-500">organizations</p>
+                </div>
+                <Link to="/organizations?status=rejected" className="mt-4 inline-flex items-center text-sm text-red-600 hover:text-red-800">
+                  View rejected organizations
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Quick Actions */}
         <div className="mb-6">
           <div className="flex items-center mb-6">
@@ -213,9 +309,9 @@ const AdminHome = () => {
               to="/organizations"
               className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all border-b-4 border-green-500 group relative"
             >
-              {pendingOrgsCount > 0 && (
+              {orgStats.pending > 0 && (
                 <span className="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center animate-pulse">
-                  {pendingOrgsCount}
+                  {orgStats.pending}
                 </span>
               )}
               <div className="flex items-start">
@@ -227,15 +323,15 @@ const AdminHome = () => {
                 <div>
                   <div className="flex items-center">
                     <h3 className="text-xl font-semibold text-gray-800 mb-2">Manage Organizations</h3>
-                    {pendingOrgsCount > 0 && (
+                    {orgStats.pending > 0 && (
                       <span className="ml-2 bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
-                        {pendingOrgsCount} pending
+                        {orgStats.pending} pending
                       </span>
                     )}
                   </div>
                   <p className="text-gray-600 mb-4">
-                    {pendingOrgsCount > 0 
-                      ? `Review ${pendingOrgsCount} pending organization ${pendingOrgsCount === 1 ? 'request' : 'requests'}`
+                    {orgStats.pending > 0 
+                      ? `Review ${orgStats.pending} pending organization ${orgStats.pending === 1 ? 'request' : 'requests'}`
                       : 'Review, approve or reject organization registration requests'}
                   </p>
                   <div className="flex items-center text-green-600 font-medium group-hover:text-green-800">
