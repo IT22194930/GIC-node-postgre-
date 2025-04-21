@@ -46,6 +46,16 @@ const organizationService = {
     }
   },
 
+  // Get organizations by user
+  getUserOrganizations: async () => {
+    try {
+      const response = await axiosInstance.get('/user');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
   // Get organization by ID
   getOrganizationById: async (id) => {
     try {
@@ -60,6 +70,16 @@ const organizationService = {
   updateOrganizationStatus: async (id, status) => {
     try {
       const response = await axiosInstance.patch(`/${id}/status`, { status });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Update organization details
+  updateOrganization: async (id, organizationData) => {
+    try {
+      const response = await axiosInstance.put(`/${id}`, organizationData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

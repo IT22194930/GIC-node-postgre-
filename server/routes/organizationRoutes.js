@@ -6,6 +6,9 @@ const { auth, isAdmin } = require('../middleware/auth');
 // All routes require authentication
 router.use(auth);
 
+// Get organizations for current user
+router.get('/user', OrganizationController.getUserOrganizations);
+
 // Get all organizations (with optional status filter)
 // Admin can see all, regular users see only their own
 router.get('/', OrganizationController.getOrganizations);
@@ -16,6 +19,9 @@ router.get('/:id', OrganizationController.getOrganizationById);
 
 // Create new organization
 router.post('/', OrganizationController.createOrganization);
+
+// Update organization
+router.put('/:id', OrganizationController.updateOrganization);
 
 // Update organization status (Admin only)
 router.patch('/:id/status', isAdmin, OrganizationController.updateOrganizationStatus);

@@ -1,149 +1,67 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
 import organizationService from '../services/organizationService';
 import Navbar from '../components/Navbar';
-import Swal from 'sweetalert2';
 
-const OrganizationDetail = () => {
+const OrganizationUserView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
   const [organization, setOrganization] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
-    // Only fetch organization details if user is authenticated and is an admin
-    if (isAuthenticated && user?.role === 'admin') {
-      fetchOrganizationDetails();
-    }
-    
-    // Set authChecked to true once we've checked authentication
-    if (isAuthenticated !== null) {
-      setAuthChecked(true);
-    }
-  }, [id, isAuthenticated, user]);
-
-  const fetchOrganizationDetails = async () => {
-    try {
-      setLoading(true);
-      const response = await organizationService.getOrganizationById(id);
-      setOrganization(response.data);
-      setError(null);
-    } catch (err) {
-      setError(err.message || 'Failed to fetch organization details');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStatusUpdate = async (newStatus) => {
-    try {
-      const result = await Swal.fire({
-        title: 'Are you sure?',
-        text: `Do you want to ${newStatus} this organization?`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: `Yes, ${newStatus} it!`
-      });
-
-      if (result.isConfirmed) {
-        await organizationService.updateOrganizationStatus(id, newStatus);
-        await fetchOrganizationDetails();
-        Swal.fire(
-          'Success!',
-          `Organization has been ${newStatus}.`,
-          'success'
-        );
+    const fetchOrganizationDetails = async () => {
+      try {
+        setLoading(true);
+        const response = await organizationService.getOrganizationById(id);
+        setOrganization(response.data);
+        setError(null);
+      } catch (err) {
+        setError(err.message || 'Failed to fetch organization details');
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      Swal.fire(
-        'Error!',
-        err.message || 'Failed to update organization status',
-        'error'
-      );
-    }
-  };
+    };
 
-  const handleDelete = async () => {
-    try {
-      const result = await Swal.fire({
-        title: 'Are you sure?',
-        text: 'This will permanently delete the organization and all associated data. This action cannot be undone!',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Yes, delete it!'
-      });
+    fetchOrganizationDetails();
+  }, [id]);
 
-      if (result.isConfirmed) {
-        await organizationService.deleteOrganization(id);
-        Swal.fire(
-          'Deleted!',
-          'Organization has been deleted.',
-          'success'
-        );
-        navigate('/organizations');
-      }
-    } catch (err) {
-      Swal.fire(
-        'Error!',
-        err.message || 'Failed to delete organization',
-        'error'
-      );
-    }
-  };
-
-  const getStatusActions = (currentStatus) => {
-    switch (currentStatus) {
+  const getStatusBadge = (status) => {
+    switch (status) {
       case 'pending':
-        return [
-          { label: 'Approve', status: 'approved', buttonClass: 'bg-green-600 hover:bg-green-700 focus:ring-green-500' },
-          { label: 'Reject', status: 'rejected', buttonClass: 'bg-red-600 hover:bg-red-700 focus:ring-red-500' }
-        ];
+        return (
+          <span className="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+            Pending
+          </span>
+        );
       case 'approved':
-        return [
-          { label: 'Move to Pending', status: 'pending', buttonClass: 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500' },
-          { label: 'Reject', status: 'rejected', buttonClass: 'bg-red-600 hover:bg-red-700 focus:ring-red-500' }
-        ];
+        return (
+          <span className="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+            Approved
+          </span>
+        );
       case 'rejected':
-        return [
-          { label: 'Move to Pending', status: 'pending', buttonClass: 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500' },
-          { label: 'Approve', status: 'approved', buttonClass: 'bg-green-600 hover:bg-green-700 focus:ring-green-500' }
-        ];
+        return (
+          <span className="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+            Rejected
+          </span>
+        );
       default:
-        return [];
+        return (
+          <span className="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+            {status}
+          </span>
+        );
     }
   };
 
-  // Show loading indicator while checking authentication
-  if (!authChecked || (isAuthenticated && !user)) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-100">
         <Navbar />
         <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <div className="text-center">Loading...</div>
-        </div>
-      </div>
-    );
-  }
-
-  // Redirect if not authenticated or not admin
-  if (!isAuthenticated || user?.role !== 'admin') {
-    return navigate('/');
-  }
-
-  if (loading && authChecked) {
-    return (
-      <div className="min-h-screen bg-gray-100">
-        <Navbar />
-        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="text-center">Loading organization details...</div>
         </div>
       </div>
     );
@@ -158,10 +76,10 @@ const OrganizationDetail = () => {
             <div className="p-6">
               <div className="text-red-500">{error || 'Organization not found'}</div>
               <button 
-                onClick={() => navigate('/organizations')}
+                onClick={() => navigate('/')}
                 className="mt-4 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
               >
-                Back to Organizations
+                Back to Home
               </button>
             </div>
           </div>
@@ -178,7 +96,7 @@ const OrganizationDetail = () => {
           <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => navigate('/organizations')}
+                onClick={() => navigate('/')}
                 className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 flex items-center"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -188,12 +106,14 @@ const OrganizationDetail = () => {
               </button>
               <h1 className="text-2xl font-semibold text-gray-900">{organization.institution_name}</h1>
             </div>
-            <button
-              onClick={handleDelete}
-              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-            >
-              Delete
-            </button>
+            {organization.status === 'pending' && (
+              <button
+                onClick={() => navigate(`/organizations/${id}/edit`)}
+                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+              >
+                Edit
+              </button>
+            )}
           </div>
 
           <div className="p-6">
@@ -254,13 +174,7 @@ const OrganizationDetail = () => {
             <div className="mb-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-gray-800">Organization Details</h2>
-                <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
-                  organization.status === 'approved' ? 'bg-green-100 text-green-800' :
-                  organization.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                  'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {organization.status}
-                </span>
+                {getStatusBadge(organization.status)}
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -304,20 +218,26 @@ const OrganizationDetail = () => {
               </div>
             </div>
 
-            {/* Status Actions */}
-            <div className="mb-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Status Actions</h3>
-              <div className="flex space-x-4">
-                {getStatusActions(organization.status).map((action) => (
-                  <button
-                    key={action.status}
-                    onClick={() => handleStatusUpdate(action.status)}
-                    className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${action.buttonClass}`}
-                  >
-                    {action.label}
-                  </button>
-                ))}
-              </div>
+            {/* Status message based on status */}
+            <div className="mb-6 p-4 rounded-md border">
+              {organization.status === 'pending' && (
+                <div className="text-yellow-600">
+                  <h3 className="font-medium">Your organization registration is pending approval</h3>
+                  <p className="mt-1 text-sm">Our admin team is reviewing your application. You can still edit your information while it's pending.</p>
+                </div>
+              )}
+              {organization.status === 'approved' && (
+                <div className="text-green-600">
+                  <h3 className="font-medium">Your organization registration has been approved!</h3>
+                  <p className="mt-1 text-sm">Your organization is now listed in our directory.</p>
+                </div>
+              )}
+              {organization.status === 'rejected' && (
+                <div className="text-red-600">
+                  <h3 className="font-medium">Your organization registration was not approved</h3>
+                  <p className="mt-1 text-sm">Please contact our support team for more information.</p>
+                </div>
+              )}
             </div>
 
             {/* Services */}
@@ -357,4 +277,4 @@ const OrganizationDetail = () => {
   );
 };
 
-export default OrganizationDetail;
+export default OrganizationUserView;

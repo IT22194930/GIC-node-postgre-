@@ -179,94 +179,40 @@ const ManageOrganizations = () => {
               </div>
             )}
 
-            {/* Mobile View - Card Layout */}
-            <div className="block md:hidden">
-              <div className="divide-y divide-gray-200">
-                {organizations.map((org) => (
-                  <div 
-                    key={org.id} 
-                    className="p-4 cursor-pointer hover:bg-gray-50"
-                    onClick={() => handleRowClick(org.id)}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900">{org.institution_name}</h3>
-                        <p className="text-sm text-gray-500">{org.email}</p>
-                        <p className="text-sm text-gray-500">{org.province}, {org.district}</p>
-                      </div>
-                      <div className="flex flex-col items-end">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          org.status === 'approved' ? 'bg-green-100 text-green-800' :
-                          org.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {org.status}
-                        </span>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(org.id);
-                          }} 
-                          className="mt-2 text-red-600 hover:text-red-900"
-                          title="Delete organization"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex space-x-4">
-                      {getStatusActions(org.status).map((action) => (
-                        <button
-                          key={action.status}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStatusUpdate(org.id, action.status);
-                          }}
-                          className={action.buttonClass}
-                        >
-                          {action.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+            {/* No Records Message */}
+            {!loading && organizations.length === 0 && (
+              <div className="py-6 px-4 text-center">
+                <div className="flex flex-col items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No {statusFilter} organizations</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {statusFilter === 'pending' && "There are no pending organizations waiting for review."}
+                    {statusFilter === 'approved' && "There are no approved organizations in the system."}
+                    {statusFilter === 'rejected' && "There are no rejected organizations in the system."}
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Desktop View - Table Layout */}
-            <div className="hidden md:block">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Institution</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Delete</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {organizations.map((org) => (
-                      <tr 
-                        key={org.id} 
-                        className="cursor-pointer hover:bg-gray-50"
-                        onClick={() => handleRowClick(org.id)}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{org.institution_name}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{org.email}</div>
-                          <div className="text-sm text-gray-500">{org.contact_number}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{org.province}, {org.district}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+            {/* Mobile View - Card Layout */}
+            {!loading && organizations.length > 0 && (
+              <div className="block md:hidden">
+                <div className="divide-y divide-gray-200">
+                  {organizations.map((org) => (
+                    <div 
+                      key={org.id} 
+                      className="p-4 cursor-pointer hover:bg-gray-50"
+                      onClick={() => handleRowClick(org.id)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="text-lg font-medium text-gray-900">{org.institution_name}</h3>
+                          <p className="text-sm text-gray-500">{org.email}</p>
+                          <p className="text-sm text-gray-500">{org.province}, {org.district}</p>
+                        </div>
+                        <div className="flex flex-col items-end">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             org.status === 'approved' ? 'bg-green-100 text-green-800' :
                             org.status === 'rejected' ? 'bg-red-100 text-red-800' :
@@ -274,35 +220,110 @@ const ManageOrganizations = () => {
                           }`}>
                             {org.status}
                           </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2" onClick={(e) => e.stopPropagation()}>
-                          {getStatusActions(org.status).map((action) => (
-                            <button
-                              key={action.status}
-                              onClick={() => handleStatusUpdate(org.id, action.status)}
-                              className={action.buttonClass}
-                            >
-                              {action.label}
-                            </button>
-                          ))}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                           <button 
-                            onClick={() => handleDelete(org.id)} 
-                            className="text-red-600 hover:text-red-900"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(org.id);
+                            }} 
+                            className="mt-2 text-red-600 hover:text-red-900"
                             title="Delete organization"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                               <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
                             </svg>
                           </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex space-x-4">
+                        {getStatusActions(org.status).map((action) => (
+                          <button
+                            key={action.status}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStatusUpdate(org.id, action.status);
+                            }}
+                            className={action.buttonClass}
+                          >
+                            {action.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Desktop View - Table Layout */}
+            {!loading && organizations.length > 0 && (
+              <div className="hidden md:block">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Institution</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Delete</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {organizations.map((org) => (
+                        <tr 
+                          key={org.id} 
+                          className="cursor-pointer hover:bg-gray-50"
+                          onClick={() => handleRowClick(org.id)}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{org.institution_name}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{org.email}</div>
+                            <div className="text-sm text-gray-500">{org.contact_number}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{org.province}, {org.district}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              org.status === 'approved' ? 'bg-green-100 text-green-800' :
+                              org.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {org.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2" onClick={(e) => e.stopPropagation()}>
+                            {getStatusActions(org.status).map((action) => (
+                              <button
+                                key={action.status}
+                                onClick={() => handleStatusUpdate(org.id, action.status)}
+                                className={action.buttonClass}
+                              >
+                                {action.label}
+                              </button>
+                            ))}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" onClick={(e) => e.stopPropagation()}>
+                            <button 
+                              onClick={() => handleDelete(org.id)} 
+                              className="text-red-600 hover:text-red-900"
+                              title="Delete organization"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
