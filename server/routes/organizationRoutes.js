@@ -20,4 +20,7 @@ router.post('/', OrganizationController.createOrganization);
 // Update organization status (Admin only)
 router.patch('/:id/status', isAdmin, OrganizationController.updateOrganizationStatus);
 
-module.exports = router; 
+// Delete organization
+router.delete('/:id', OrganizationController.deleteOrganization);
+
+module.exports = router;

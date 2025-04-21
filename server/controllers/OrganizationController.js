@@ -267,6 +267,47 @@ class OrganizationController {
       });
     }
   }
+
+  static async deleteOrganization(req, res) {
+    try {
+      const { id } = req.params;
+
+      // First delete related services
+      const deleteServicesQuery = `
+        DELETE FROM services
+        WHERE organization_id = $1
+        RETURNING *
+      `;
+      await OrganizationController.query(deleteServicesQuery, [id]);
+
+      // Then delete the organization
+      const deleteOrgQuery = `
+        DELETE FROM organizations
+        WHERE id = $1
+        RETURNING *
+      `;
+      const result = await OrganizationController.query(deleteOrgQuery, [id]);
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Organization not found'
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Organization deleted successfully',
+        data: result.rows[0]
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Error deleting organization',
+        error: error.message
+      });
+    }
+  }
 }
 
-module.exports = OrganizationController; 
+module.exports = OrganizationController;

@@ -58,6 +58,36 @@ const ManageOrganizations = () => {
     }
   };
 
+  const handleDelete = async (organizationId) => {
+    try {
+      const result = await Swal.fire({
+        title: 'Are you sure?',
+        text: 'This will permanently delete the organization and all associated data. This action cannot be undone!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+      });
+
+      if (result.isConfirmed) {
+        await organizationService.deleteOrganization(organizationId);
+        await fetchOrganizations();
+        Swal.fire(
+          'Deleted!',
+          'Organization has been deleted.',
+          'success'
+        );
+      }
+    } catch (err) {
+      Swal.fire(
+        'Error!',
+        err.message || 'Failed to delete organization',
+        'error'
+      );
+    }
+  };
+
   const getStatusActions = (currentStatus) => {
     switch (currentStatus) {
       case 'pending':
@@ -134,13 +164,24 @@ const ManageOrganizations = () => {
                         <p className="text-sm text-gray-500">{org.email}</p>
                         <p className="text-sm text-gray-500">{org.province}, {org.district}</p>
                       </div>
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        org.status === 'approved' ? 'bg-green-100 text-green-800' :
-                        org.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {org.status}
-                      </span>
+                      <div className="flex flex-col items-end">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          org.status === 'approved' ? 'bg-green-100 text-green-800' :
+                          org.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {org.status}
+                        </span>
+                        <button 
+                          onClick={() => handleDelete(org.id)} 
+                          className="mt-2 text-red-600 hover:text-red-900"
+                          title="Delete organization"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                     <div className="mt-4 flex space-x-4">
                       {getStatusActions(org.status).map((action) => (
@@ -169,6 +210,7 @@ const ManageOrganizations = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Delete</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -204,6 +246,17 @@ const ManageOrganizations = () => {
                             </button>
                           ))}
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <button 
+                            onClick={() => handleDelete(org.id)} 
+                            className="text-red-600 hover:text-red-900"
+                            title="Delete organization"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -217,4 +270,4 @@ const ManageOrganizations = () => {
   );
 };
 
-export default ManageOrganizations; 
+export default ManageOrganizations;

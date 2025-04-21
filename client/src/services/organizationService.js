@@ -64,7 +64,17 @@ const organizationService = {
     } catch (error) {
       throw error.response?.data || error.message;
     }
+  },
+
+  // Delete organization
+  deleteOrganization: async (id) => {
+    try {
+      const response = await axiosInstance.delete(`/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
   }
 };
 
-export default organizationService; 
+export default organizationService;
