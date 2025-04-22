@@ -19,11 +19,17 @@ const ManageOrganizations = () => {
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState('pending');
   const [authChecked, setAuthChecked] = useState(false);
+  const [counts, setCounts] = useState({
+    pending: 0,
+    approved: 0,
+    rejected: 0
+  });
 
   useEffect(() => {
     // Only fetch organizations if user is authenticated and is an admin
     if (isAuthenticated && user?.role === 'admin') {
       fetchOrganizations();
+      fetchOrganizationCounts();
     }
     
     // Set authChecked to true once we've checked authentication
@@ -44,6 +50,22 @@ const ManageOrganizations = () => {
     }
   };
 
+  const fetchOrganizationCounts = async () => {
+    try {
+      const pendingResponse = await organizationService.getAllOrganizations("pending");
+      const approvedResponse = await organizationService.getAllOrganizations("approved");
+      const rejectedResponse = await organizationService.getAllOrganizations("rejected");
+      
+      setCounts({
+        pending: pendingResponse.data.length,
+        approved: approvedResponse.data.length,
+        rejected: rejectedResponse.data.length
+      });
+    } catch (err) {
+      console.error('Error fetching organization counts:', err);
+    }
+  };
+
   const handleStatusUpdate = async (organizationId, newStatus) => {
     try {
       const result = await Swal.fire({
@@ -59,6 +81,7 @@ const ManageOrganizations = () => {
       if (result.isConfirmed) {
         await organizationService.updateOrganizationStatus(organizationId, newStatus);
         await fetchOrganizations();
+        await fetchOrganizationCounts(); // Refresh counts
         // Notify that pending count might have changed
         notifyPendingCountChange();
         Swal.fire(
@@ -91,6 +114,7 @@ const ManageOrganizations = () => {
       if (result.isConfirmed) {
         await organizationService.deleteOrganization(organizationId);
         await fetchOrganizations();
+        await fetchOrganizationCounts(); // Refresh counts
         // Notify that pending count might have changed
         notifyPendingCountChange();
         Swal.fire(
@@ -169,17 +193,61 @@ const ManageOrganizations = () => {
         <div className="px-4 py-6 sm:px-0">
           <div className="bg-white shadow-md rounded-lg overflow-hidden">
             <div className="px-4 py-5 border-b border-gray-200 sm:px-6">
-              <div className="flex justify-between items-center">
-                <h1 className="text-lg font-medium text-gray-900">Manage Organizations</h1>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                </select>
+              <div className="flex flex-col">
+                <h1 className="text-lg font-medium text-gray-900 mb-4">Manage Organizations</h1>
+                <div className="flex flex-wrap border-b">
+                  <button
+                    onClick={() => setStatusFilter('pending')}
+                    className={`py-1 sm:py-2 px-2 sm:px-4 flex items-center text-sm sm:text-base ${
+                      statusFilter === 'pending'
+                        ? 'border-b-2 border-blue-500 text-blue-600'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Pending
+                    <span className={`ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs rounded-full ${
+                      statusFilter === 'pending'
+                        ? 'bg-blue-100 text-blue-600'
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {counts.pending}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('approved')}
+                    className={`py-1 sm:py-2 px-2 sm:px-4 flex items-center text-sm sm:text-base ${
+                      statusFilter === 'approved'
+                        ? 'border-b-2 border-green-500 text-green-600'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Approved
+                    <span className={`ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs rounded-full ${
+                      statusFilter === 'approved'
+                        ? 'bg-green-100 text-green-600'
+                        : 'bg-green-100 text-green-800'
+                    }`}>
+                      {counts.approved}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('rejected')}
+                    className={`py-1 sm:py-2 px-2 sm:px-4 flex items-center text-sm sm:text-base ${
+                      statusFilter === 'rejected'
+                        ? 'border-b-2 border-red-500 text-red-600'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Rejected
+                    <span className={`ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs rounded-full ${
+                      statusFilter === 'rejected'
+                        ? 'bg-red-100 text-red-600'
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {counts.rejected}
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
             
