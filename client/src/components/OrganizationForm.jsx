@@ -144,6 +144,37 @@ const OrganizationForm = () => {
 
       await organizationService.createOrganization(organizationData);
       toast.success('Organization registered successfully!');
+      
+      // Reset form
+      setFormData({
+        province: '',
+        district: '',
+        institutionName: '',
+        websiteUrl: '',
+        personalDetails: {
+          name: '',
+          designation: '',
+          email: '',
+          contactNumber: ''
+        },
+        organizationLogo: null,
+        organizationLogoUrl: '',
+        profileImage: null,
+        profileImageUrl: ''
+      });
+      
+      setServices([{
+        serviceName: '',
+        category: '',
+        description: '',
+        requirements: ''
+      }]);
+      
+      // Reload page to show the new organization in the list
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500); // Small delay to ensure toast message is visible
+      
     } catch (error) {
       console.error('Submission error:', error);
       toast.error(error.message || 'Error submitting organization details');
@@ -163,12 +194,10 @@ const OrganizationForm = () => {
         {/* Organization Details Section */}
         <div className="relative border-b pb-8 pt-6">
           <div className="absolute -top-4 -left-2 bg-blue-500 text-white px-4 py-1 rounded-full shadow-md">
-            <span className="text-lg font-medium">Step 1</span>
+            <span className="text-lg font-medium">Step 1 : Organization Details</span>
           </div>
           
-          <h3 className="text-xl font-bold text-gray-800 mb-6 mt-3 ml-2">Organization Details</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
             <div>
               <label className="block text-gray-700 font-medium mb-2">Province *</label>
               <select
@@ -236,12 +265,10 @@ const OrganizationForm = () => {
         {/* Personal Details Section */}
         <div className="relative border-b pb-8 pt-6">
           <div className="absolute -top-4 -left-2 bg-green-500 text-white px-4 py-1 rounded-full shadow-md">
-            <span className="text-lg font-medium">Step 2</span>
+            <span className="text-lg font-medium">Step 2 : Contact Information</span>
           </div>
           
-          <h3 className="text-xl font-bold text-gray-800 mb-6 mt-3 ml-2">Contact Information</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
             <div>
               <label className="block text-gray-700 font-medium mb-2">Full Name *</label>
               <input
@@ -299,12 +326,10 @@ const OrganizationForm = () => {
         {/* Organization Images Section */}
         <div className="relative border-b pb-8 pt-6">
           <div className="absolute -top-4 -left-2 bg-purple-500 text-white px-4 py-1 rounded-full shadow-md">
-            <span className="text-lg font-medium">Step 3</span>
+            <span className="text-lg font-medium">Step 3 : Branding & Images</span>
           </div>
-          
-          <h3 className="text-xl font-bold text-gray-800 mb-6 mt-3 ml-2">Branding & Images</h3>
-          
-          <div className="space-y-8">
+
+          <div className="space-y-8 ">
             <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -402,10 +427,8 @@ const OrganizationForm = () => {
         {/* Service Information Section */}
         <div className="relative pb-8 pt-6">
           <div className="absolute -top-4 -left-2 bg-orange-500 text-white px-4 py-1 rounded-full shadow-md">
-            <span className="text-lg font-medium">Step 4</span>
+            <span className="text-lg font-medium">Step 4 : Services Offered</span>
           </div>
-          
-          <h3 className="text-xl font-bold text-gray-800 mb-6 mt-3 ml-2">Services Offered</h3>
           
           <div className="space-y-6">
             {services.map((service, index) => (

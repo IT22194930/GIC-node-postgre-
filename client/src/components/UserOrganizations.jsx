@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import organizationService from '../services/organizationService';
+import Swal from 'sweetalert2';
 
 const UserOrganizations = () => {
   const [organizations, setOrganizations] = useState([]);
@@ -30,6 +31,40 @@ const UserOrganizations = () => {
     const formElement = document.getElementById("organization-form");
     if (formElement) {
       formElement.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      const result = await Swal.fire({
+        title: 'Are you sure?',
+        text: 'This will permanently delete this organization. This action cannot be undone!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+      });
+
+      if (result.isConfirmed) {
+        await organizationService.deleteOrganization(id);
+        
+        Swal.fire(
+          'Deleted!',
+          'Your organization registration has been deleted.',
+          'success'
+        );
+        
+        // Refresh the list after deletion
+        fetchUserOrganizations();
+      }
+    } catch (err) {
+      console.error('Error deleting organization:', err);
+      Swal.fire(
+        'Error!',
+        'Failed to delete organization. Please try again.',
+        'error'
+      );
     }
   };
 
@@ -146,12 +181,20 @@ const UserOrganizations = () => {
                   View Details
                 </Link>
                 {org.status === 'pending' && (
-                  <Link
-                    to={`/organizations/${org.id}/edit`}
-                    className="text-green-600 hover:text-green-800"
-                  >
-                    Edit
-                  </Link>
+                  <>
+                    <Link
+                      to={`/organizations/${org.id}/edit`}
+                      className="text-green-600 hover:text-green-800 mr-4"
+                    >
+                      Edit
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(org.id)}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      Delete
+                    </button>
+                  </>
                 )}
               </div>
               <div>

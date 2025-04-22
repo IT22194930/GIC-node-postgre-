@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import organizationService from '../services/organizationService';
 import Navbar from '../components/Navbar';
+import Swal from 'sweetalert2';
 
 const OrganizationUserView = () => {
   const { id } = useParams();
@@ -56,6 +57,40 @@ const OrganizationUserView = () => {
     }
   };
 
+  const handleDelete = async () => {
+    try {
+      const result = await Swal.fire({
+        title: 'Are you sure?',
+        text: 'This will permanently delete this organization. This action cannot be undone!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+      });
+
+      if (result.isConfirmed) {
+        await organizationService.deleteOrganization(id);
+        
+        Swal.fire(
+          'Deleted!',
+          'Your organization registration has been deleted.',
+          'success'
+        );
+        
+        // Redirect to home page after deletion
+        navigate('/');
+      }
+    } catch (err) {
+      console.error('Error deleting organization:', err);
+      Swal.fire(
+        'Error!',
+        'Failed to delete organization. Please try again.',
+        'error'
+      );
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100">
@@ -107,12 +142,20 @@ const OrganizationUserView = () => {
               <h1 className="text-2xl font-semibold text-gray-900">{organization.institution_name}</h1>
             </div>
             {organization.status === 'pending' && (
-              <button
-                onClick={() => navigate(`/organizations/${id}/edit`)}
-                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-              >
-                Edit
-              </button>
+              <div className="space-x-2">
+                <button
+                  onClick={() => navigate(`/organizations/${id}/edit`)}
+                  className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+                >
+                  Delete
+                </button>
+              </div>
             )}
           </div>
 
