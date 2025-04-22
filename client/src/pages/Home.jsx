@@ -69,22 +69,6 @@ const Home = () => {
             <h2 className="text-3xl font-bold text-gray-800">Register a New Organization</h2>
           </div>
           
-          <div className="bg-white p-8 rounded-lg shadow-lg mb-8 border border-gray-200">
-            <div className="flex flex-col md:flex-row items-start md:items-center ">
-              <div className="bg-blue-100 p-3 rounded-full mr-6 mb-4 md:mb-0">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-gray-900">Organization Registration</h3>
-                <p className="text-lg text-gray-600">
-                  Fill out the form below to register your organization. Once submitted, your registration will be reviewed by our admin team.
-                </p>
-              </div>
-            </div>
-          </div>
-          
           <OrganizationForm />
         </div>
       </div>
