@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { provinces, getDistricts } from '../utils/locationData';
 import organizationService from '../services/organizationService';
 import { toast } from 'react-toastify';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import { saveAs } from 'file-saver';
 
 const OrganizationForm = () => {
   const [districts, setDistricts] = useState([]);
@@ -106,6 +108,108 @@ const OrganizationForm = () => {
     setServices(prev => prev.filter((_, i) => i !== index));
   };
 
+  const createTableRow = (label, value) => {
+    return new Paragraph({
+      children: [
+        new TextRun({ text: `${label}: `, bold: true }),
+        new TextRun(value)
+      ],
+      spacing: { after: 100 }
+    });
+  };
+
+  const generateWordDocument = async (data) => {
+    // Create a new document
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: [
+          // Title
+          new Paragraph({
+            text: "Organization Registration Details",
+            heading: HeadingLevel.HEADING_1,
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 400 }
+          }),
+
+          // Organization Details
+          new Paragraph({
+            text: "Organization Details",
+            heading: HeadingLevel.HEADING_2,
+            thematicBreak: true,
+            spacing: { before: 400, after: 200 }
+          }),
+
+          createTableRow("Province", data.province),
+          createTableRow("District", data.district),
+          createTableRow("Institution Name", data.institutionName),
+          createTableRow("Website URL", data.websiteUrl || "Not provided"),
+          
+          // Contact Information
+          new Paragraph({
+            text: "Contact Information",
+            heading: HeadingLevel.HEADING_2,
+            thematicBreak: true,
+            spacing: { before: 400, after: 200 }
+          }),
+          
+          createTableRow("Full Name", data.personalDetails.name),
+          createTableRow("Designation", data.personalDetails.designation),
+          createTableRow("Email Address", data.personalDetails.email),
+          createTableRow("Contact Number", data.personalDetails.contactNumber),
+          
+          // Services Offered
+          new Paragraph({
+            text: "Services Offered",
+            heading: HeadingLevel.HEADING_2,
+            thematicBreak: true,
+            spacing: { before: 400, after: 200 }
+          }),
+          
+          ...data.services.flatMap((service, index) => [
+            new Paragraph({
+              text: `Service ${index + 1}: ${service.serviceName}`,
+              heading: HeadingLevel.HEADING_3,
+              spacing: { before: 300, after: 100 }
+            }),
+            createTableRow("Category", service.category),
+            new Paragraph({ 
+              text: "Description:",
+              spacing: { before: 200, after: 100 }
+            }),
+            new Paragraph({ 
+              text: service.description,
+              indent: { left: 600 },
+              spacing: { after: 200 }
+            }),
+            new Paragraph({ 
+              text: "Requirements:",
+              spacing: { before: 100, after: 100 }
+            }),
+            new Paragraph({ 
+              text: service.requirements,
+              indent: { left: 600 },
+              spacing: { after: 300 }
+            })
+          ]),
+          
+          // Footer with date
+          new Paragraph({
+            text: `Generated on ${new Date().toLocaleDateString()}`,
+            alignment: AlignmentType.RIGHT,
+            spacing: { before: 400 }
+          })
+        ]
+      }]
+    });
+    
+    // Generate the document as a blob directly - changed from toBuffer to toBlob for browser compatibility
+    const blob = await Packer.toBlob(doc);
+    
+    // Save the document
+    saveAs(blob, `${data.institutionName.replace(/\s+/g, '_')}_Registration.docx`);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -141,6 +245,9 @@ const OrganizationForm = () => {
         profileImageUrl: formData.profileImageUrl,
         services: services
       };
+
+      // Generate and download Word document
+      await generateWordDocument(organizationData);
 
       await organizationService.createOrganization(organizationData);
       toast.success('Organization registered successfully!');
