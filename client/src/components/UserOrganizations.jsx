@@ -138,12 +138,12 @@ const UserOrganizations = () => {
   }
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow-md">
+    <div className="p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Your Organizations</h2>
         <button
           onClick={scrollToForm}
-          className="bg-blue-500 text-white px-3 py-1 text-sm rounded-md hover:bg-blue-600 transition transform hover:scale-105 shadow"
+          className="bg-blue-500 text-white px-4 py-2 text-sm rounded-md hover:bg-blue-600 transition transform hover:scale-105 shadow"
         >
           Register New
         </button>

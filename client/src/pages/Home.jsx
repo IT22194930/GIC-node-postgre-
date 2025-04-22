@@ -59,7 +59,9 @@ const Home = () => {
             <div className="bg-blue-600 w-1 h-8 mr-4 rounded-full"></div>
             <h2 className="text-3xl font-bold text-gray-800">Your Organizations</h2>
           </div>
-          <UserOrganizations />
+          <div className="bg-white rounded-lg shadow-md">
+            <UserOrganizations />
+          </div>
         </div>
         
         {/* Organization Registration Form */}
