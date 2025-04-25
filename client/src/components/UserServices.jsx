@@ -7,6 +7,7 @@ const UserServices = () => {
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [editingService, setEditingService] = useState(null);
 
   useEffect(() => {
     fetchUserServices();
@@ -106,6 +107,63 @@ const UserServices = () => {
     }
   };
 
+  const handleEditService = (service) => {
+    setEditingService({
+      id: service.id,
+      service_name: service.service_name,
+      category: service.category,
+      description: service.description,
+      requirements: service.requirements,
+      organization_id: service.organization_id
+    });
+  };
+
+  const handleUpdateService = async () => {
+    try {
+      const serviceData = {
+        serviceName: editingService.service_name,
+        category: editingService.category,
+        description: editingService.description,
+        requirements: editingService.requirements
+      };
+      
+      await serviceService.updateService(
+        editingService.id, 
+        editingService.organization_id, 
+        serviceData
+      );
+      
+      setEditingService(null);
+      
+      Swal.fire(
+        'Updated!',
+        'Your service has been updated successfully.',
+        'success'
+      );
+      
+      // Refresh the list after update
+      fetchUserServices();
+    } catch (err) {
+      console.error('Error updating service:', err);
+      Swal.fire(
+        'Error!',
+        'Failed to update service. Please try again.',
+        'error'
+      );
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingService(null);
+  };
+
+  const handleInputChange = (field, value) => {
+    setEditingService(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'pending':
@@ -188,59 +246,127 @@ const UserServices = () => {
       </div>
 
       <div className="space-y-6">
-        {services.map((service) => (
-          <div key={service.id} className="border rounded-md p-4">
-            <div className="flex justify-between items-start mb-3">
-              <h3 className="text-lg font-medium">{service.service_name}</h3>
-              <div className="flex gap-2">
-                {getStatusBadge(service.status)}
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+        {editingService ? (
+          <div className="border-2 border-blue-300 rounded-md p-6 bg-blue-50">
+            <h3 className="text-lg font-medium mb-4">Edit Service</h3>
+            <div className="space-y-4">
               <div>
-                <p className="text-sm text-gray-500">Category: {service.category}</p>
-                <p className="text-sm text-gray-500">Organization: {service.organization_name}</p>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Service Name</label>
+                <input
+                  type="text"
+                  value={editingService.service_name}
+                  onChange={(e) => handleInputChange('service_name', e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Description: {service.description}</p>
-                <p className="text-sm text-gray-500">Requirements: {service.requirements}</p>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <input
+                  type="text"
+                  value={editingService.category}
+                  onChange={(e) => handleInputChange('category', e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
               </div>
-            </div>
-
-            <div className="border-t pt-3 mt-3 flex justify-between">
               <div>
-                <Link
-                  to={`/organizations/${service.organization_id}/details`}
-                  className="text-blue-600 hover:text-blue-800 mr-4"
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={editingService.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  rows="3"
+                  required
+                ></textarea>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Requirements</label>
+                <textarea
+                  value={editingService.requirements}
+                  onChange={(e) => handleInputChange('requirements', e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  rows="3"
+                  required
+                ></textarea>
+              </div>
+              <div className="flex justify-end gap-3 pt-3">
+                <button
+                  onClick={handleCancelEdit}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
                 >
-                  View Organization
-                </Link>
-                {service.status === 'pending' && (
-                  <>
-                    <button
-                      onClick={() => handleDelete(service.id)}
-                      className="text-red-600 hover:text-red-800 mr-4"
-                    >
-                      Delete
-                    </button>
-                    <button
-                      onClick={() => handleSubmitService(service)}
-                      className="text-green-600 hover:text-green-800 font-medium"
-                    >
-                      Submit Service
-                    </button>
-                  </>
-                )}
-              </div>
-              <div>
-                <span className="text-xs text-gray-500">
-                  Submitted on {new Date(service.created_at).toLocaleDateString()}
-                </span>
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateService}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  Save Changes
+                </button>
               </div>
             </div>
           </div>
-        ))}
+        ) : (
+          services.map((service) => (
+            <div key={service.id} className="border rounded-md p-4">
+              <div className="flex justify-between items-start mb-3">
+                <h3 className="text-lg font-medium">{service.service_name}</h3>
+                <div className="flex gap-2">
+                  {getStatusBadge(service.status)}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                <div>
+                  <p className="text-sm text-gray-500">Category: {service.category}</p>
+                  <p className="text-sm text-gray-500">Organization: {service.organization_name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Description: {service.description}</p>
+                  <p className="text-sm text-gray-500">Requirements: {service.requirements}</p>
+                </div>
+              </div>
+
+              <div className="border-t pt-3 mt-3 flex justify-between">
+                <div>
+                  <Link
+                    to={`/organizations/${service.organization_id}/details`}
+                    className="text-blue-600 hover:text-blue-800 mr-4"
+                  >
+                    View Organization
+                  </Link>
+                  {service.status === 'pending' && (
+                    <>
+                      <button
+                        onClick={() => handleDelete(service.id)}
+                        className="text-red-600 hover:text-red-800 mr-4"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        onClick={() => handleEditService(service)}
+                        className="text-blue-600 hover:text-blue-800 mr-4"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleSubmitService(service)}
+                        className="bg-blue-600 px-1 rounded-md text-white hover:text-white font-medium"
+                      >
+                        Submit Service
+                      </button>
+                    </>
+                  )}
+                </div>
+                <div>
+                  <span className="text-xs text-gray-500">
+                    Submitted on {new Date(service.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

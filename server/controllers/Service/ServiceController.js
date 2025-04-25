@@ -189,28 +189,40 @@ class ServiceController {
       const userId = req.user.id;
       const { serviceName, category, description, requirements } = req.body;
 
-      // Check if organization exists and belongs to the user
-      const checkOrgQuery = 'SELECT * FROM organizations WHERE id = $1 AND user_id = $2';
-      const checkOrgResult = await ServiceController.query(checkOrgQuery, [organizationId, userId]);
+      // First check if the service exists and is in pending status
+      const serviceCheckQuery = `
+        SELECT s.* FROM services_for_review s
+        WHERE s.id = $1 AND s.organization_id = $2
+      `;
+      
+      const serviceCheckResult = await ServiceController.query(serviceCheckQuery, [serviceId, organizationId]);
+      
+      if (serviceCheckResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Service not found'
+        });
+      }
 
-      if (checkOrgResult.rows.length === 0) {
+      // Check if user owns this service
+      if (serviceCheckResult.rows[0].submitter_id !== userId && req.user.role !== 'admin') {
         return res.status(403).json({
           success: false,
           message: 'You do not have permission to update this service'
         });
       }
 
-      // Check if the organization is in pending status
-      if (checkOrgResult.rows[0].status !== 'pending') {
+      // Check if service is in pending status
+      if (serviceCheckResult.rows[0].status !== 'pending') {
         return res.status(400).json({
           success: false,
-          message: 'Services can only be updated for organizations with pending status'
+          message: 'Only services with pending status can be updated'
         });
       }
 
       // Update the service
       const updateQuery = `
-        UPDATE services
+        UPDATE services_for_review
         SET 
           service_name = $1,
           category = $2,
@@ -225,13 +237,6 @@ class ServiceController {
         updateQuery, 
         [serviceName, category, description, requirements, serviceId, organizationId]
       );
-
-      if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'Service not found'
-        });
-      }
 
       res.status(200).json({
         success: true,

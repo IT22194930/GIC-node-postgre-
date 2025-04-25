@@ -148,8 +148,7 @@ const OrganizationForm = () => {
       setOrganizationId(response.data.organization.id);
       setCurrentStep('services');
       
-      // Scroll to the top of the form
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Remove the scrolling behavior to keep user at current position
       
     } catch (error) {
       console.error('Organization submission error:', error);
