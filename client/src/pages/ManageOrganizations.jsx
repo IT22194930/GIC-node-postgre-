@@ -15,14 +15,21 @@ const ManageOrganizations = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const [organizations, setOrganizations] = useState([]);
+  const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [servicesLoading, setServicesLoading] = useState(true);
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState('pending');
+  const [serviceStatusFilter, setServiceStatusFilter] = useState('pending');
+  const [activeTab, setActiveTab] = useState('organizations');
   const [authChecked, setAuthChecked] = useState(false);
   const [counts, setCounts] = useState({
     pending: 0,
     approved: 0,
-    rejected: 0
+    rejected: 0,
+    pendingServices: 0,
+    approvedServices: 0,
+    rejectedServices: 0
   });
 
   useEffect(() => {
@@ -30,13 +37,15 @@ const ManageOrganizations = () => {
     if (isAuthenticated && user?.role === 'admin') {
       fetchOrganizations();
       fetchOrganizationCounts();
+      fetchServices();
+      fetchServiceCounts();
     }
     
     // Set authChecked to true once we've checked authentication
     if (isAuthenticated !== null) {
       setAuthChecked(true);
     }
-  }, [isAuthenticated, user, statusFilter]);
+  }, [isAuthenticated, user, statusFilter, serviceStatusFilter]);
 
   const fetchOrganizations = async () => {
     try {
@@ -50,17 +59,47 @@ const ManageOrganizations = () => {
     }
   };
 
+  const fetchServices = async () => {
+    try {
+      setServicesLoading(true);
+      const response = await organizationService.getServicesByStatus(serviceStatusFilter);
+      setServices(response.data);
+    } catch (err) {
+      console.error(`Error fetching ${serviceStatusFilter} services:`, err);
+    } finally {
+      setServicesLoading(false);
+    }
+  };
+
+  const fetchServiceCounts = async () => {
+    try {
+      const pendingResponse = await organizationService.getServicesByStatus("pending");
+      const approvedResponse = await organizationService.getServicesByStatus("approved");
+      const rejectedResponse = await organizationService.getServicesByStatus("rejected");
+      
+      setCounts(prevCounts => ({
+        ...prevCounts,
+        pendingServices: pendingResponse.data.length,
+        approvedServices: approvedResponse.data.length,
+        rejectedServices: rejectedResponse.data.length
+      }));
+    } catch (err) {
+      console.error('Error fetching service counts:', err);
+    }
+  };
+
   const fetchOrganizationCounts = async () => {
     try {
       const pendingResponse = await organizationService.getAllOrganizations("pending");
       const approvedResponse = await organizationService.getAllOrganizations("approved");
       const rejectedResponse = await organizationService.getAllOrganizations("rejected");
       
-      setCounts({
+      setCounts(prevCounts => ({
+        ...prevCounts,
         pending: pendingResponse.data.length,
         approved: approvedResponse.data.length,
         rejected: rejectedResponse.data.length
-      });
+      }));
     } catch (err) {
       console.error('Error fetching organization counts:', err);
     }
@@ -99,6 +138,39 @@ const ManageOrganizations = () => {
     }
   };
 
+  const handleServiceStatusUpdate = async (serviceId, newStatus) => {
+    try {
+      const actionText = newStatus === 'approved' ? 'approve' : 'reject';
+      
+      const result = await Swal.fire({
+        title: 'Are you sure?',
+        text: `Do you want to ${actionText} this service?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: `Yes, ${actionText} it!`
+      });
+
+      if (result.isConfirmed) {
+        await organizationService.updatePendingServiceStatus(serviceId, newStatus);
+        await fetchServices();
+        await fetchServiceCounts();
+        Swal.fire(
+          'Success!',
+          `Service has been ${actionText}d.`,
+          'success'
+        );
+      }
+    } catch (err) {
+      Swal.fire(
+        'Error!',
+        err.message || 'Failed to update service status',
+        'error'
+      );
+    }
+  };
+
   const handleDelete = async (organizationId) => {
     try {
       const result = await Swal.fire({
@@ -127,6 +199,37 @@ const ManageOrganizations = () => {
       Swal.fire(
         'Error!',
         err.message || 'Failed to delete organization',
+        'error'
+      );
+    }
+  };
+
+  const handleServiceDelete = async (serviceId) => {
+    try {
+      const result = await Swal.fire({
+        title: 'Are you sure?',
+        text: 'This will permanently delete the service. This action cannot be undone!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+      });
+
+      if (result.isConfirmed) {
+        await organizationService.deleteService(serviceId);
+        await fetchServices();
+        await fetchServiceCounts(); // Refresh counts
+        Swal.fire(
+          'Deleted!',
+          'Service has been deleted.',
+          'success'
+        );
+      }
+    } catch (err) {
+      Swal.fire(
+        'Error!',
+        err.message || 'Failed to delete service',
         'error'
       );
     }
@@ -175,12 +278,23 @@ const ManageOrganizations = () => {
     return <Navigate to="/" />;
   }
 
-  if (loading && authChecked) {
+  if (loading && authChecked && activeTab === 'organizations') {
     return (
       <div className="min-h-screen bg-gray-100">
         <Navbar />
         <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <div className="text-center">Loading organizations...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (servicesLoading && authChecked && activeTab === 'services') {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <Navbar />
+        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          <div className="text-center">Loading services...</div>
         </div>
       </div>
     );
@@ -194,60 +308,148 @@ const ManageOrganizations = () => {
           <div className="bg-white shadow-md rounded-lg overflow-hidden">
             <div className="px-4 py-5 border-b border-gray-200 sm:px-6">
               <div className="flex flex-col">
-                <h1 className="text-lg font-medium text-gray-900 mb-4">Manage Organizations</h1>
-                <div className="flex flex-wrap border-b">
+                <h1 className="text-lg font-medium text-gray-900 mb-4">Admin Dashboard</h1>
+                
+                {/* Main Tabs */}
+                <div className="flex flex-wrap border-b mb-4">
                   <button
-                    onClick={() => setStatusFilter('pending')}
-                    className={`py-1 sm:py-2 px-2 sm:px-4 flex items-center text-sm sm:text-base ${
-                      statusFilter === 'pending'
+                    onClick={() => setActiveTab('organizations')}
+                    className={`py-2 px-4 flex items-center ${
+                      activeTab === 'organizations'
                         ? 'border-b-2 border-blue-500 text-blue-600'
                         : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
-                    Pending
-                    <span className={`ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs rounded-full ${
-                      statusFilter === 'pending'
-                        ? 'bg-blue-100 text-blue-600'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {counts.pending}
-                    </span>
+                    Organizations
                   </button>
                   <button
-                    onClick={() => setStatusFilter('approved')}
-                    className={`py-1 sm:py-2 px-2 sm:px-4 flex items-center text-sm sm:text-base ${
-                      statusFilter === 'approved'
-                        ? 'border-b-2 border-green-500 text-green-600'
+                    onClick={() => setActiveTab('services')}
+                    className={`py-2 px-4 flex items-center ${
+                      activeTab === 'services'
+                        ? 'border-b-2 border-blue-500 text-blue-600'
                         : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
-                    Approved
-                    <span className={`ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs rounded-full ${
-                      statusFilter === 'approved'
-                        ? 'bg-green-100 text-green-600'
-                        : 'bg-green-100 text-green-800'
-                    }`}>
-                      {counts.approved}
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => setStatusFilter('rejected')}
-                    className={`py-1 sm:py-2 px-2 sm:px-4 flex items-center text-sm sm:text-base ${
-                      statusFilter === 'rejected'
-                        ? 'border-b-2 border-red-500 text-red-600'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    Rejected
-                    <span className={`ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs rounded-full ${
-                      statusFilter === 'rejected'
-                        ? 'bg-red-100 text-red-600'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {counts.rejected}
+                    Services
+                    <span className="ml-2 px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">
+                      {counts.pendingServices}
                     </span>
                   </button>
                 </div>
+                
+                {/* Organization Status Tabs - Only show if organizations tab is active */}
+                {activeTab === 'organizations' && (
+                  <div className="flex flex-wrap border-b">
+                    <button
+                      onClick={() => setStatusFilter('pending')}
+                      className={`py-1 sm:py-2 px-2 sm:px-4 flex items-center text-sm sm:text-base ${
+                        statusFilter === 'pending'
+                          ? 'border-b-2 border-blue-500 text-blue-600'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      Pending
+                      <span className={`ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs rounded-full ${
+                        statusFilter === 'pending'
+                          ? 'bg-blue-100 text-blue-600'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {counts.pending}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setStatusFilter('approved')}
+                      className={`py-1 sm:py-2 px-2 sm:px-4 flex items-center text-sm sm:text-base ${
+                        statusFilter === 'approved'
+                          ? 'border-b-2 border-green-500 text-green-600'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      Approved
+                      <span className={`ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs rounded-full ${
+                        statusFilter === 'approved'
+                          ? 'bg-green-100 text-green-600'
+                          : 'bg-green-100 text-green-800'
+                      }`}>
+                        {counts.approved}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setStatusFilter('rejected')}
+                      className={`py-1 sm:py-2 px-2 sm:px-4 flex items-center text-sm sm:text-base ${
+                        statusFilter === 'rejected'
+                          ? 'border-b-2 border-red-500 text-red-600'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      Rejected
+                      <span className={`ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs rounded-full ${
+                        statusFilter === 'rejected'
+                          ? 'bg-red-100 text-red-600'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {counts.rejected}
+                      </span>
+                    </button>
+                  </div>
+                )}
+                
+                {/* Service Status Tabs - Only show if services tab is active */}
+                {activeTab === 'services' && (
+                  <div className="flex flex-wrap border-b">
+                    <button
+                      onClick={() => setServiceStatusFilter('pending')}
+                      className={`py-1 sm:py-2 px-2 sm:px-4 flex items-center text-sm sm:text-base ${
+                        serviceStatusFilter === 'pending'
+                          ? 'border-b-2 border-blue-500 text-blue-600'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      Pending
+                      <span className={`ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs rounded-full ${
+                        serviceStatusFilter === 'pending'
+                          ? 'bg-blue-100 text-blue-600'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {counts.pendingServices}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setServiceStatusFilter('approved')}
+                      className={`py-1 sm:py-2 px-2 sm:px-4 flex items-center text-sm sm:text-base ${
+                        serviceStatusFilter === 'approved'
+                          ? 'border-b-2 border-green-500 text-green-600'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      Approved
+                      <span className={`ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs rounded-full ${
+                        serviceStatusFilter === 'approved'
+                          ? 'bg-green-100 text-green-600'
+                          : 'bg-green-100 text-green-800'
+                      }`}>
+                        {counts.approvedServices}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setServiceStatusFilter('rejected')}
+                      className={`py-1 sm:py-2 px-2 sm:px-4 flex items-center text-sm sm:text-base ${
+                        serviceStatusFilter === 'rejected'
+                          ? 'border-b-2 border-red-500 text-red-600'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      Rejected
+                      <span className={`ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs rounded-full ${
+                        serviceStatusFilter === 'rejected'
+                          ? 'bg-red-100 text-red-600'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {counts.rejectedServices}
+                      </span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             
@@ -257,149 +459,139 @@ const ManageOrganizations = () => {
               </div>
             )}
 
-            {/* No Records Message */}
-            {!loading && organizations.length === 0 && (
-              <div className="py-6 px-4 text-center">
-                <div className="flex flex-col items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No {statusFilter} organizations</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {statusFilter === 'pending' && "There are no pending organizations waiting for review."}
-                    {statusFilter === 'approved' && "There are no approved organizations in the system."}
-                    {statusFilter === 'rejected' && "There are no rejected organizations in the system."}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Mobile View - Card Layout */}
-            {!loading && organizations.length > 0 && (
-              <div className="block md:hidden">
-                <div className="divide-y divide-gray-200">
-                  {organizations.map((org) => (
-                    <div 
-                      key={org.id} 
-                      className="p-4 cursor-pointer hover:bg-gray-50"
-                      onClick={() => handleRowClick(org.id)}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="text-lg font-medium text-gray-900">{org.institution_name}</h3>
-                          <p className="text-sm text-gray-500">{org.email}</p>
-                          <p className="text-sm text-gray-500">{org.province}, {org.district}</p>
-                        </div>
-                        <div className="flex flex-col items-end">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            org.status === 'approved' ? 'bg-green-100 text-green-800' :
-                            org.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {org.status}
-                          </span>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(org.id);
-                            }} 
-                            className="mt-2 text-red-600 hover:text-red-900"
-                            title="Delete organization"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                      <div className="mt-4 flex space-x-4">
-                        {getStatusActions(org.status).map((action) => (
-                          <button
-                            key={action.status}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleStatusUpdate(org.id, action.status);
-                            }}
-                            className={action.buttonClass}
-                          >
-                            {action.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Desktop View - Table Layout */}
-            {!loading && organizations.length > 0 && (
-              <div className="hidden md:block">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Institution</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Delete</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {organizations.map((org) => (
-                        <tr 
-                          key={org.id} 
-                          className="cursor-pointer hover:bg-gray-50"
-                          onClick={() => handleRowClick(org.id)}
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{org.institution_name}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{org.email}</div>
-                            <div className="text-sm text-gray-500">{org.contact_number}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{org.province}, {org.district}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              org.status === 'approved' ? 'bg-green-100 text-green-800' :
-                              org.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                              'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {org.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2" onClick={(e) => e.stopPropagation()}>
-                            {getStatusActions(org.status).map((action) => (
-                              <button
-                                key={action.status}
-                                onClick={() => handleStatusUpdate(org.id, action.status)}
-                                className={action.buttonClass}
-                              >
-                                {action.label}
-                              </button>
-                            ))}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" onClick={(e) => e.stopPropagation()}>
-                            <button 
-                              onClick={() => handleDelete(org.id)} 
-                              className="text-red-600 hover:text-red-900"
-                              title="Delete organization"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                              </svg>
-                            </button>
-                          </td>
+            {/* ORGANIZATIONS TAB CONTENT */}
+            {activeTab === 'organizations' && (
+              <div className="p-4">
+                <h2 className="text-lg font-medium text-gray-900 mb-4">
+                  {statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} Organizations
+                </h2>
+                {organizations.length === 0 ? (
+                  <div className="text-center text-gray-500">No {statusFilter} organizations found.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead>
+                        <tr>
+                          <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Name
+                          </th>
+                          <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Address
+                          </th>
+                          <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Contact
+                          </th>
+                          <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {organizations.map((org) => (
+                          <tr 
+                            key={org.id} 
+                            className="hover:bg-gray-50 cursor-pointer"
+                            onClick={() => handleRowClick(org.id)}
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">{org.institution_name}</div>
+                              <div className="text-sm text-gray-500">{org.email}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{org.physical_address}</div>
+                              <div className="text-sm text-gray-500">{org.district}, {org.province}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {org.phone_number}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" onClick={(e) => e.stopPropagation()}>
+                              {getStatusActions(statusFilter).map((action, index) => (
+                                <button
+                                  key={index}
+                                  onClick={() => handleStatusUpdate(org.id, action.status)}
+                                  className={`${action.buttonClass} mr-4`}
+                                >
+                                  {action.label}
+                                </button>
+                              ))}
+                              <button
+                                onClick={() => handleDelete(org.id)}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SERVICES TAB CONTENT */}
+            {activeTab === 'services' && (
+              <div className="p-4">
+                <h2 className="text-lg font-medium text-gray-900 mb-4">
+                  {serviceStatusFilter.charAt(0).toUpperCase() + serviceStatusFilter.slice(1)} Services
+                </h2>
+                {services.length === 0 ? (
+                  <div className="text-center text-gray-500">No {serviceStatusFilter} services found.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead>
+                        <tr>
+                          <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Service Name
+                          </th>
+                          <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Organization
+                          </th>
+                          <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Description
+                          </th>
+                          <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {services.map((service) => (
+                          <tr key={service.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {service.service_name}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {service.organization_name}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {service.description}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              {getStatusActions(serviceStatusFilter).map((action, index) => (
+                                <button
+                                  key={index}
+                                  onClick={() => handleServiceStatusUpdate(service.id, action.status)}
+                                  className={`${action.buttonClass} mr-4`}
+                                >
+                                  {action.label}
+                                </button>
+                              ))}
+                              <button
+                                onClick={() => handleServiceDelete(service.id)}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -1,17 +1,21 @@
 import React, { useState } from "react";
 import Navbar from "../components/Navbar";
 import OrganizationForm from "../components/OrganizationForm";
+import ServiceForm from "../components/ServiceForm";
 import UserOrganizations from "../components/UserOrganizations";
+import UserServices from "../components/UserServices";
 import { useAuth } from "../hooks/useAuth";
 
 const Home = () => {
   const { user } = useAuth();
+  const [activeForm, setActiveForm] = useState("organizations"); // "organizations" or "services"
   const [showForm, setShowForm] = useState(false);
 
-  const scrollToForm = () => {
+  const scrollToForm = (formType) => {
+    setActiveForm(formType);
     setShowForm(true);
     setTimeout(() => {
-      const formElement = document.getElementById("organization-form");
+      const formElement = document.getElementById("form-section");
       if (formElement) {
         formElement.scrollIntoView({ behavior: "smooth" });
       }
@@ -34,12 +38,20 @@ const Home = () => {
                 You're logged in as <span className="font-semibold">{user?.email || "your account"}</span>
               </p>
               
-              <button 
-                onClick={scrollToForm}
-                className="bg-white text-blue-700 px-6 py-3 rounded-lg font-medium text-lg shadow-lg hover:bg-blue-50 transition duration-300 transform hover:scale-105"
-              >
-                Register an Organization
-              </button>
+              <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+                <button 
+                  onClick={() => scrollToForm("organizations")}
+                  className="bg-white text-blue-700 px-6 py-3 rounded-lg font-medium text-lg shadow-lg hover:bg-blue-50 transition duration-300 transform hover:scale-105"
+                >
+                  Register an Organization
+                </button>
+                <button 
+                  onClick={() => scrollToForm("services")}
+                  className="bg-indigo-500 text-white px-6 py-3 rounded-lg font-medium text-lg shadow-lg hover:bg-indigo-600 transition duration-300 transform hover:scale-105 border border-indigo-400"
+                >
+                  Add Services
+                </button>
+              </div>
             </div>
             <div className="md:w-2/5 flex justify-center">
               <img 
@@ -63,16 +75,60 @@ const Home = () => {
             <UserOrganizations />
           </div>
         </div>
-        
-        {/* Organization Registration Form */}
-        <div id="organization-form" className={`transition-all duration-500 ${showForm ? 'opacity-100' : 'opacity-100'}`}>
+
+        {/* User Services Section */}
+        <div className="mb-16">
           <div className="flex items-center mb-8">
-            <div className="bg-green-600 w-1 h-8 mr-4 rounded-full"></div>
-            <h2 className="text-3xl font-bold text-gray-800">Register a New Organization</h2>
+            <div className="bg-indigo-600 w-1 h-8 mr-4 rounded-full"></div>
+            <h2 className="text-3xl font-bold text-gray-800">Your Services</h2>
           </div>
-          
-          <OrganizationForm />
+          <div className="bg-white rounded-lg shadow-md">
+            <UserServices />
+          </div>
         </div>
+        
+        {/* Registration Forms */}
+        {showForm && (
+          <div id="form-section" className="transition-all duration-500">
+            <div className="flex items-center mb-6">
+              <div className={`${activeForm === "organizations" ? "bg-green-600" : "bg-purple-600"} w-1 h-8 mr-4 rounded-full`}></div>
+              <h2 className="text-3xl font-bold text-gray-800">
+                {activeForm === "organizations" ? "Register a New Organization" : "Add Services to an Organization"}
+              </h2>
+            </div>
+            
+            <div className="mb-6">
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex justify-center">
+                  <div className="flex bg-gray-100 rounded-lg p-1">
+                    <button
+                      onClick={() => setActiveForm("organizations")}
+                      className={`px-6 py-2 text-sm font-medium rounded-md transition-all ${
+                        activeForm === "organizations"
+                          ? "bg-blue-600 text-white shadow"
+                          : "text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      Organization Details
+                    </button>
+                    <button
+                      onClick={() => setActiveForm("services")}
+                      className={`px-6 py-2 text-sm font-medium rounded-md transition-all ${
+                        activeForm === "services"
+                          ? "bg-purple-600 text-white shadow"
+                          : "text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      Services
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {activeForm === "organizations" ? <OrganizationForm /> : <ServiceForm />}
+          </div>
+        )}
       </div>
       
       {/* Footer */}
