@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { provinces, getDistricts } from '../utils/locationData';
 import pendingOrganizationService from '../services/pendingOrganizationService';
 import { toast } from 'react-toastify';
@@ -17,6 +17,8 @@ const OrganizationForm = () => {
     description: '',
     requirements: ''
   }]);
+  // Reference to the form header
+  const formHeaderRef = useRef(null);
 
   const [formData, setFormData] = useState({
     province: '',
@@ -148,7 +150,12 @@ const OrganizationForm = () => {
       setOrganizationId(response.data.organization.id);
       setCurrentStep('services');
       
-      // Remove the scrolling behavior to keep user at current position
+      // Add a slight delay before scrolling to the form header
+      setTimeout(() => {
+        if (formHeaderRef.current) {
+          formHeaderRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
       
     } catch (error) {
       console.error('Organization submission error:', error);
@@ -222,7 +229,7 @@ const OrganizationForm = () => {
 
   return (
     <div>
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-t-lg p-6 shadow-lg">
+      <div ref={formHeaderRef} className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-t-lg p-6 shadow-lg">
         <h1 className="text-3xl font-bold text-white">Organization Registration</h1>
         {currentStep === 'organization' ? (
           <p className="text-blue-100 mt-2">Step 1: Fill out organization details below. After submitting, you'll be able to add services.</p>
