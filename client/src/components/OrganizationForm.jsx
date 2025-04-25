@@ -178,7 +178,7 @@ const OrganizationForm = () => {
       };
 
       await pendingOrganizationService.updatePendingOrganization(organizationId, organizationData);
-      toast.success('Organization submitted successfully!');
+      toast.success('Organization saved successfully!');
       
       // Reset form
       setFormData({
