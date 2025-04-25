@@ -33,10 +33,17 @@ const AppRouter = () => {
         <Route path="/update-profile" element={<UpdateProfile />} />
         <Route path="/users" element={<ManageUsers />} />
         <Route path="/users/edit/:id" element={<EditUser />} />
+        
+        {/* Regular organizations routes */}
         <Route path="/organizations" element={<ManageOrganizations />} />
         <Route path="/organizations/:id" element={<OrganizationDetail />} />
         <Route path="/organizations/:id/details" element={<OrganizationUserView />} />
         <Route path="/organizations/:id/edit" element={<OrganizationEdit />} />
+        
+        {/* Pending organizations routes */}
+        <Route path="/pending-organizations/:id/details" element={<OrganizationUserView isPending={true} />} />
+        <Route path="/pending-organizations/:id/edit" element={<OrganizationEdit isPending={true} />} />
+        <Route path="/pending-organizations/:id" element={<OrganizationDetail isPending={true} />} />
       </Routes>
     </Router>
   );

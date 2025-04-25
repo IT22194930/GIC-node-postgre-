@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { provinces, getDistricts } from '../utils/locationData';
 import organizationService from '../services/organizationService';
+import pendingOrganizationService from '../services/pendingOrganizationService';
 import Navbar from '../components/Navbar';
 import { toast } from 'react-toastify';
 
-const OrganizationEdit = () => {
+const OrganizationEdit = ({ isPending = false }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -35,12 +36,19 @@ const OrganizationEdit = () => {
     const fetchOrganizationDetails = async () => {
       try {
         setLoading(true);
-        const response = await organizationService.getOrganizationById(id);
+        let response;
+        
+        if (isPending) {
+          response = await pendingOrganizationService.getPendingOrganizationById(id);
+        } else {
+          response = await organizationService.getOrganizationById(id);
+        }
+        
         const organization = response.data;
         
         if (organization.status !== 'pending') {
           toast.error('Only pending organizations can be edited');
-          navigate(`/organizations/${id}/details`);
+          navigate(isPending ? `/pending-organizations/${id}/details` : `/organizations/${id}/details`);
           return;
         }
 
@@ -95,7 +103,7 @@ const OrganizationEdit = () => {
     };
 
     fetchOrganizationDetails();
-  }, [id, navigate]);
+  }, [id, navigate, isPending]);
 
   useEffect(() => {
     if (formData.province) {
@@ -206,9 +214,14 @@ const OrganizationEdit = () => {
       };
 
       // Submit form
-      await organizationService.updateOrganization(id, organizationData);
+      if (isPending) {
+        await pendingOrganizationService.updatePendingOrganization(id, organizationData);
+      } else {
+        await organizationService.updateOrganization(id, organizationData);
+      }
+      
       toast.success('Organization updated successfully!');
-      navigate(`/organizations/${id}/details`);
+      navigate(isPending ? `/pending-organizations/${id}/details` : `/organizations/${id}/details`);
     } catch (error) {
       console.error('Update error:', error);
       toast.error(error.message || 'Error updating organization details');
@@ -256,9 +269,11 @@ const OrganizationEdit = () => {
         <div className="px-4 sm:px-0">
           <div className="bg-white p-4 rounded-lg shadow-md mb-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Edit Organization</h2>
+              <h2 className="text-2xl font-bold text-gray-900">
+                {isPending ? 'Edit Pending Organization' : 'Edit Organization'}
+              </h2>
               <button
-                onClick={() => navigate(`/organizations/${id}/details`)}
+                onClick={() => navigate(isPending ? `/pending-organizations/${id}/details` : `/organizations/${id}/details`)}
                 className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
               >
                 Cancel
@@ -500,7 +515,7 @@ const OrganizationEdit = () => {
             <div className="flex space-x-4">
               <button
                 type="button"
-                onClick={() => navigate(`/organizations/${id}/details`)}
+                onClick={() => navigate(isPending ? `/pending-organizations/${id}/details` : `/organizations/${id}/details`)}
                 className="w-1/2 py-3 rounded-md bg-gray-500 hover:bg-gray-600 text-white"
               >
                 Cancel

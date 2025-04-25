@@ -1,21 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import organizationService from '../services/organizationService';
+import pendingOrganizationService from '../services/pendingOrganizationService';
 import Navbar from '../components/Navbar';
 import Swal from 'sweetalert2';
 
-const OrganizationUserView = () => {
+const OrganizationUserView = ({ isPending = false }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [organization, setOrganization] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchOrganizationDetails = async () => {
       try {
         setLoading(true);
-        const response = await organizationService.getOrganizationById(id);
+        let response;
+
+        if (isPending) {
+          // Fetch from pending organizations
+          response = await pendingOrganizationService.getPendingOrganizationById(id);
+        } else {
+          // Fetch from regular organizations
+          response = await organizationService.getOrganizationById(id);
+        }
+
         setOrganization(response.data);
         setError(null);
       } catch (err) {
@@ -26,7 +37,7 @@ const OrganizationUserView = () => {
     };
 
     fetchOrganizationDetails();
-  }, [id]);
+  }, [id, isPending]);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -70,14 +81,18 @@ const OrganizationUserView = () => {
       });
 
       if (result.isConfirmed) {
-        await organizationService.deleteOrganization(id);
-        
+        if (isPending) {
+          await pendingOrganizationService.deletePendingOrganization(id);
+        } else {
+          await organizationService.deleteOrganization(id);
+        }
+
         Swal.fire(
           'Deleted!',
           'Your organization registration has been deleted.',
           'success'
         );
-        
+
         // Redirect to home page after deletion
         navigate('/');
       }
@@ -88,6 +103,112 @@ const OrganizationUserView = () => {
         'Failed to delete organization. Please try again.',
         'error'
       );
+    }
+  };
+
+  const handleSubmitToOrganization = async () => {
+    try {
+      setSubmitting(true);
+      
+      await Swal.fire({
+        title: 'Submit Organization?',
+        text: 'This will submit your organization for review. Are you sure you want to proceed?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Yes, submit it!'
+      }).then(async (result) => {
+        if (result.isConfirmed) {
+          // Format the data for the organizations table
+          const organizationData = {
+            province: organization.province,
+            district: organization.district,
+            institutionName: organization.institution_name,
+            websiteUrl: organization.website_url,
+            personalDetails: {
+              name: organization.name,
+              designation: organization.designation,
+              email: organization.email,
+              contactNumber: organization.contact_number
+            },
+            organizationLogoUrl: organization.organization_logo,
+            profileImageUrl: organization.profile_image,
+            services: organization.services || []
+          };
+          
+          // Create the organization in the main organizations table
+          await organizationService.createOrganization(organizationData);
+          
+          // Delete the pending organization
+          await pendingOrganizationService.deletePendingOrganization(id);
+          
+          Swal.fire(
+            'Submitted!',
+            'Your organization has been submitted for review.',
+            'success'
+          );
+          
+          // Navigate to home page after submission
+          navigate('/');
+        }
+      });
+    } catch (err) {
+      console.error('Error submitting organization:', err);
+      Swal.fire(
+        'Error!',
+        'Failed to submit organization. Please try again.',
+        'error'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const getStatusMessage = () => {
+    if (!organization) return null;
+    
+    if (isPending) {
+      return (
+        <div className="mb-6 p-4 rounded-md border bg-blue-50 border-blue-200">
+          <div className="text-blue-700">
+            <h3 className="font-medium">Organization awaiting submission</h3>
+            <p className="mt-1 text-sm">This organization is saved as a draft. Click "Submit Organization" to send it for review.</p>
+          </div>
+        </div>
+      );
+    } else {
+      switch (organization.status) {
+        case 'pending':
+          return (
+            <div className="mb-6 p-4 rounded-md border bg-yellow-50 border-yellow-200">
+              <div className="text-yellow-700">
+                <h3 className="font-medium">Your organization registration is pending approval</h3>
+                <p className="mt-1 text-sm">Our admin team is reviewing your application. You can still edit your information while it's pending.</p>
+              </div>
+            </div>
+          );
+        case 'approved':
+          return (
+            <div className="mb-6 p-4 rounded-md border bg-green-50 border-green-200">
+              <div className="text-green-700">
+                <h3 className="font-medium">Your organization registration has been approved!</h3>
+                <p className="mt-1 text-sm">Your organization is now listed in our directory.</p>
+              </div>
+            </div>
+          );
+        case 'rejected':
+          return (
+            <div className="mb-6 p-4 rounded-md border bg-red-50 border-red-200">
+              <div className="text-red-700">
+                <h3 className="font-medium">Your organization registration was not approved</h3>
+                <p className="mt-1 text-sm">Please contact our support team for more information.</p>
+              </div>
+            </div>
+          );
+        default:
+          return null;
+      }
     }
   };
 
@@ -139,30 +260,44 @@ const OrganizationUserView = () => {
                 </svg>
                 Back
               </button>
-              <h1 className="text-2xl font-semibold text-gray-900">{organization.institution_name}</h1>
+              <h1 className="text-2xl font-semibold text-gray-900">{organization?.institution_name}</h1>
+              {isPending && (
+                <span className="px-3 py-1 text-sm font-semibold rounded-full bg-purple-100 text-purple-800">
+                  Draft
+                </span>
+              )}
             </div>
-            {organization.status === 'pending' && (
-              <div className="space-x-2">
+            <div className="space-x-2">
+              {isPending && (
                 <button
-                  onClick={() => navigate(`/organizations/${id}/edit`)}
-                  className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                  onClick={handleSubmitToOrganization}
+                  disabled={submitting}
+                  className={`bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 ${submitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  Edit
+                  {submitting ? 'Submitting...' : 'Submit Organization'}
                 </button>
-                <button
-                  onClick={handleDelete}
-                  className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-                >
-                  Delete
-                </button>
-              </div>
-            )}
+              )}
+              {organization?.status === 'pending' && (
+                <>
+                  <button
+                    onClick={() => navigate(isPending ? `/pending-organizations/${id}/edit` : `/organizations/${id}/edit`)}
+                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="p-6">
-            {/* Image section with logo and profile photo */}
             <div className="mb-6 flex flex-col md:flex-row gap-6">
-              {/* Organization Logo */}
               <div className="w-full md:w-1/2">
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Organization Logo</h3>
                 <div className="border rounded-md p-4 flex justify-center items-center bg-gray-50 h-64">
@@ -187,7 +322,6 @@ const OrganizationUserView = () => {
                 </div>
               </div>
 
-              {/* Contact Person Profile Image */}
               <div className="w-full md:w-1/2">
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Contact Person</h3>
                 <div className="border rounded-md p-4 flex flex-col items-center bg-gray-50 h-64">
@@ -261,29 +395,37 @@ const OrganizationUserView = () => {
               </div>
             </div>
 
-            {/* Status message based on status */}
-            <div className="mb-6 p-4 rounded-md border">
-              {organization.status === 'pending' && (
-                <div className="text-yellow-600">
-                  <h3 className="font-medium">Your organization registration is pending approval</h3>
-                  <p className="mt-1 text-sm">Our admin team is reviewing your application. You can still edit your information while it's pending.</p>
-                </div>
-              )}
-              {organization.status === 'approved' && (
-                <div className="text-green-600">
-                  <h3 className="font-medium">Your organization registration has been approved!</h3>
-                  <p className="mt-1 text-sm">Your organization is now listed in our directory.</p>
-                </div>
-              )}
-              {organization.status === 'rejected' && (
-                <div className="text-red-600">
-                  <h3 className="font-medium">Your organization registration was not approved</h3>
-                  <p className="mt-1 text-sm">Please contact our support team for more information.</p>
-                </div>
-              )}
-            </div>
+            {getStatusMessage()}
 
-            {/* Services */}
+            {isPending && (
+              <div className="mb-6 flex justify-center">
+                <button
+                  onClick={handleSubmitToOrganization}
+                  disabled={submitting}
+                  className={`bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-blue-700 transition transform hover:scale-105 text-lg ${
+                    submitting ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  {submitting ? (
+                    <span className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Submitting...
+                    </span>
+                  ) : (
+                    <span className="flex items-center">
+                      Submit Organization for Review 
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
+
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-4">Services</h3>
               {organization.services && organization.services.length > 0 ? (
