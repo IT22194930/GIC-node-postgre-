@@ -71,6 +71,41 @@ const UserServices = () => {
     }
   };
 
+  const handleSubmitService = async (service) => {
+    try {
+      const result = await Swal.fire({
+        title: 'Submit Service',
+        text: 'Are you sure you want to submit this service for approval?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Yes, submit it!'
+      });
+
+      if (result.isConfirmed) {
+        // Call the API to submit the service
+        await serviceService.submitServiceForApproval(service.id);
+        
+        Swal.fire(
+          'Submitted!',
+          'Your service has been submitted for approval.',
+          'success'
+        );
+        
+        // Refresh the list after submission
+        fetchUserServices();
+      }
+    } catch (err) {
+      console.error('Error submitting service:', err);
+      Swal.fire(
+        'Error!',
+        'Failed to submit service. Please try again.',
+        'error'
+      );
+    }
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'pending':
@@ -188,6 +223,12 @@ const UserServices = () => {
                       className="text-red-600 hover:text-red-800 mr-4"
                     >
                       Delete
+                    </button>
+                    <button
+                      onClick={() => handleSubmitService(service)}
+                      className="text-green-600 hover:text-green-800 font-medium"
+                    >
+                      Submit Service
                     </button>
                   </>
                 )}

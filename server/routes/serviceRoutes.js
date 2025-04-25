@@ -14,12 +14,24 @@ router.get('/user', ServiceController.getUserServices);
 router.get('/pending-review', isAdmin, ServiceController.getPendingServices);
 router.post('/review/:serviceId', isAdmin, ServiceController.reviewService);
 
+// Get all services (admin only)
+router.get('/all', isAdmin, ServiceController.getAllServices);
+
+// Delete service directly by ID (admin only)
+router.delete('/:serviceId', isAdmin, ServiceController.deleteServiceById);
+
+// Update service status directly (admin only)
+router.patch('/:serviceId/status', isAdmin, ServiceController.updateServiceStatus);
+
 // New service review workflow endpoints
 // Get services submitted by the current user
 router.get('/submissions/user', ServiceController.getUserSubmittedServices);
 
 // Delete a pending service submission
 router.delete('/submissions/:serviceId', ServiceController.deleteServiceSubmission);
+
+// Submit a service for approval (moves from services_for_review to services table)
+router.post('/submissions/:serviceId/submit', ServiceController.submitServiceForApproval);
 
 // Get services for a specific organization
 router.get('/organization/:organizationId', ServiceController.getOrganizationServices);

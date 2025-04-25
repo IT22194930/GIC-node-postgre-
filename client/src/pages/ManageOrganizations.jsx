@@ -63,7 +63,7 @@ const ManageOrganizations = () => {
   const fetchServices = async () => {
     try {
       setServicesLoading(true);
-      const response = await serviceService.getServicesByStatus(serviceStatusFilter);
+      const response = await serviceService.getAllServices(serviceStatusFilter);
       setServices(response.data);
     } catch (err) {
       console.error(`Error fetching ${serviceStatusFilter} services:`, err);
@@ -74,9 +74,9 @@ const ManageOrganizations = () => {
 
   const fetchServiceCounts = async () => {
     try {
-      const pendingResponse = await serviceService.getServicesByStatus("pending");
-      const approvedResponse = await serviceService.getServicesByStatus("approved");
-      const rejectedResponse = await serviceService.getServicesByStatus("rejected");
+      const pendingResponse = await serviceService.getAllServices("pending");
+      const approvedResponse = await serviceService.getAllServices("approved");
+      const rejectedResponse = await serviceService.getAllServices("rejected");
       
       setCounts(prevCounts => ({
         ...prevCounts,
@@ -154,7 +154,7 @@ const ManageOrganizations = () => {
       });
 
       if (result.isConfirmed) {
-        await serviceService.updatePendingServiceStatus(serviceId, newStatus);
+        await serviceService.updateServiceStatus(serviceId, newStatus);
         await fetchServices();
         await fetchServiceCounts();
         Swal.fire(
@@ -218,7 +218,7 @@ const ManageOrganizations = () => {
       });
 
       if (result.isConfirmed) {
-        await serviceService.deleteServiceSubmission(serviceId);
+        await serviceService.deleteServiceDirect(serviceId);
         await fetchServices();
         await fetchServiceCounts(); // Refresh counts
         Swal.fire(

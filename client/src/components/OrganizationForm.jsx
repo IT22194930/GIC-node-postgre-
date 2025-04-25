@@ -10,6 +10,7 @@ const OrganizationForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState('organization'); // 'organization' or 'services'
   const [organizationId, setOrganizationId] = useState(null);
+  const [skipServices, setSkipServices] = useState(false);
   const [services, setServices] = useState([{
     serviceName: '',
     category: '',
@@ -158,25 +159,26 @@ const OrganizationForm = () => {
     }
   };
 
-  const handleServicesSubmit = async (e) => {
+  const handleServicesSubmit = async (e, isSkipping = false) => {
     e.preventDefault();
     
     try {
       setIsSubmitting(true);
 
-      if (!services[0].serviceName || !services[0].category || 
-          !services[0].description || !services[0].requirements) {
-        toast.error('Please fill in at least one service details');
+      // Only validate services if not skipping
+      if (!isSkipping && (!services[0].serviceName || !services[0].category || 
+          !services[0].description || !services[0].requirements)) {
+        toast.error('Please fill in at least one service details or skip adding services');
         return;
       }
 
       // Update the organization with services
       const organizationData = {
-        services: services
+        services: isSkipping ? [] : services
       };
 
       await pendingOrganizationService.updatePendingOrganization(organizationId, organizationData);
-      toast.success('Services added successfully!');
+      toast.success('Organization submitted successfully!');
       
       // Reset form
       setFormData({
@@ -500,7 +502,7 @@ const OrganizationForm = () => {
           </div>
         </form>
       ) : (
-        <form onSubmit={handleServicesSubmit} className="bg-white rounded-b-lg shadow-lg p-8 space-y-8 border-t-0">
+        <form onSubmit={(e) => handleServicesSubmit(e)} className="bg-white rounded-b-lg shadow-lg p-8 space-y-8 border-t-0">
           {/* Service Information Section */}
           <div className="relative pb-8 pt-6">
             <div className="absolute -top-4 -left-2 bg-orange-500 text-white px-4 py-1 rounded-full shadow-md">
@@ -636,6 +638,19 @@ const OrganizationForm = () => {
             </button>
           </div>
           
+          <div className="pt-4">
+            <button
+              type="button"
+              onClick={(e) => {
+                setSkipServices(true);
+                handleServicesSubmit(e, true);
+              }}
+              className="w-full py-4 rounded-md text-lg font-medium shadow-lg transition-all transform hover:scale-[1.02] bg-gray-500 hover:bg-gray-600 text-white"
+            >
+              Skip Adding Services
+            </button>
+          </div>
+
           <p className="mt-4 text-center text-sm text-gray-600">
             By submitting this form, you agree to our Terms of Service and Privacy Policy
           </p>

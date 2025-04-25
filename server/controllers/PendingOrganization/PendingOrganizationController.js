@@ -479,6 +479,67 @@ class PendingOrganizationController {
         });
       }
 
+      const { services } = req.body;
+
+      // If we're only updating services, don't update organization details
+      if (Object.keys(req.body).length === 1 && services) {
+        // Parse and validate services
+        let parsedServices;
+        try {
+          parsedServices = typeof services === 'string' ? JSON.parse(services) : services;
+        } catch (error) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid services data format'
+          });
+        }
+
+        // Delete existing services
+        await PendingOrganizationController.query(
+          'DELETE FROM pending_services WHERE organization_id = $1',
+          [id]
+        );
+
+        // Create new services only if not empty array
+        let createdServices = [];
+        if (parsedServices && parsedServices.length > 0) {
+          const serviceQuery = `
+            INSERT INTO pending_services (
+              organization_id,
+              service_name,
+              category,
+              description,
+              requirements,
+              created_at,
+              updated_at
+            ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+            RETURNING *
+          `;
+
+          createdServices = await Promise.all(
+            parsedServices.map(service =>
+              PendingOrganizationController.query(serviceQuery, [
+                id,
+                service.serviceName,
+                service.category,
+                service.description,
+                service.requirements
+              ])
+            )
+          );
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: 'Services updated successfully',
+          data: {
+            organization,
+            services: createdServices.map(result => result?.rows?.[0] || [])
+          }
+        });
+      }
+
+      // Otherwise proceed with full update including organization details
       const {
         province,
         district,
@@ -488,8 +549,7 @@ class PendingOrganizationController {
         organizationLogo,
         organizationLogoUrl,
         profileImage,
-        profileImageUrl,
-        services
+        profileImageUrl
       } = req.body;
 
       // Get personal details directly from the object
@@ -538,7 +598,7 @@ class PendingOrganizationController {
       const updateResult = await PendingOrganizationController.query(updateQuery, updateParams);
       const updatedOrg = updateResult.rows[0];
 
-      // Parse and validate services
+      // Handle services update as well
       let parsedServices;
       try {
         parsedServices = typeof services === 'string' ? JSON.parse(services) : services;

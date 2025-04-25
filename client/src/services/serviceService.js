@@ -123,6 +123,47 @@ const serviceService = {
     } catch (error) {
       throw error.response?.data || error.message;
     }
+  },
+
+  // Submit a service for approval (moves from services_for_review to services table)
+  submitServiceForApproval: async (serviceId) => {
+    try {
+      const response = await axiosInstance.post(`/submissions/${serviceId}/submit`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get all services with optional status filter
+  getAllServices: async (status = null) => {
+    try {
+      const url = status ? `/all?status=${status}` : '/all';
+      const response = await axiosInstance.get(url);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Delete a service directly from services table (for admin use)
+  deleteServiceDirect: async (serviceId) => {
+    try {
+      const response = await axiosInstance.delete(`/${serviceId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Update a service's status directly (admin only)
+  updateServiceStatus: async (serviceId, newStatus) => {
+    try {
+      const response = await axiosInstance.patch(`/${serviceId}/status`, { status: newStatus });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
   }
 };
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import organizationService from '../services/organizationService';
+import serviceService from '../services/serviceService';
 import Navbar from '../components/Navbar';
 import Swal from 'sweetalert2';
 
@@ -10,7 +11,9 @@ const OrganizationDetail = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const [organization, setOrganization] = useState(null);
+  const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [servicesLoading, setServicesLoading] = useState(true);
   const [error, setError] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -18,6 +21,7 @@ const OrganizationDetail = () => {
     // Only fetch organization details if user is authenticated and is an admin
     if (isAuthenticated && user?.role === 'admin') {
       fetchOrganizationDetails();
+      fetchOrganizationServices();
     }
     
     // Set authChecked to true once we've checked authentication
@@ -36,6 +40,19 @@ const OrganizationDetail = () => {
       setError(err.message || 'Failed to fetch organization details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchOrganizationServices = async () => {
+    try {
+      setServicesLoading(true);
+      const response = await serviceService.getOrganizationServices(id);
+      setServices(response.data || []);
+    } catch (err) {
+      console.error('Error fetching organization services:', err);
+      // We don't set the main error state here to avoid blocking the whole page
+    } finally {
+      setServicesLoading(false);
     }
   };
 
@@ -323,7 +340,12 @@ const OrganizationDetail = () => {
             {/* Services */}
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-4">Services</h3>
-              {organization.services && organization.services.length > 0 ? (
+              {servicesLoading ? (
+                <div className="text-center py-4">
+                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-500"></div>
+                  <p className="mt-2 text-gray-500">Loading services...</p>
+                </div>
+              ) : services && services.length > 0 ? (
                 <div className="border rounded-md overflow-hidden">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -332,15 +354,25 @@ const OrganizationDetail = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requirements</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {organization.services.map((service) => (
+                      {services.map((service) => (
                         <tr key={service.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{service.serviceName}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{service.service_name}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{service.category}</td>
                           <td className="px-6 py-4 text-sm text-gray-500">{service.description}</td>
                           <td className="px-6 py-4 text-sm text-gray-500">{service.requirements}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                              service.status === 'approved' ? 'bg-green-100 text-green-800' :
+                              service.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {service.status || 'pending'}
+                            </span>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
