@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { provinces, getDistricts } from '../utils/locationData';
-import organizationService from '../services/organizationService';
+import pendingOrganizationService from '../services/pendingOrganizationService';
 import { toast } from 'react-toastify';
 
 const OrganizationForm = () => {
@@ -142,8 +142,8 @@ const OrganizationForm = () => {
         services: services
       };
 
-      await organizationService.createOrganization(organizationData);
-      toast.success('Organization registered successfully!');
+      await pendingOrganizationService.createPendingOrganization(organizationData);
+      toast.success('Organization registration submitted for review!');
       
       // Reset form
       setFormData({
@@ -537,7 +537,7 @@ const OrganizationForm = () => {
               </div>
             ) : (
               <div className="flex items-center justify-center">
-                <span>Submit Registration</span>
+                <span>Save Registration</span>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                 </svg>
