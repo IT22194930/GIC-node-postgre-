@@ -3,6 +3,7 @@ const cors = require("cors");
 const userRoutes = require('./routes/User/UserRoutes');
 const OrganizationRoutes = require('./routes/organizationRoutes');
 const PendingOrganizationRoutes = require('./routes/pendingOrganizationRoutes');
+const ServiceRoutes = require('./routes/serviceRoutes');
 const port = process.env.PORT || 3001;
 
 const app = express();
@@ -13,6 +14,7 @@ app.use(express.json());
 app.use('/api/users', userRoutes);
 app.use('/api/organizations', OrganizationRoutes);
 app.use('/api/pending-organizations', PendingOrganizationRoutes);
+app.use('/api/services', ServiceRoutes);
 
 app.listen(port, () => {
    console.log(`Server is running on port ${port}`);

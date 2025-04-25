@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import organizationService from '../services/organizationService';
+import serviceService from '../services/serviceService';
 import Swal from 'sweetalert2';
 
 const UserServices = () => {
@@ -15,12 +15,14 @@ const UserServices = () => {
   const fetchUserServices = async () => {
     try {
       setLoading(true);
-      const response = await organizationService.getUserServices();
-      setServices(response.data || []);
+      // Using getUserSubmittedServices instead of getUserServices to get from services_for_review
+      const response = await serviceService.getUserSubmittedServices();
+      // Ensure we're getting an array, even if data is not present or not in expected format
+      setServices(Array.isArray(response.data) ? response.data : []);
       setError(null);
     } catch (err) {
-      setError('Failed to fetch your services. Please try again later.');
-      console.error('Error fetching services:', err);
+      setError('Failed to fetch your service submissions. Please try again later.');
+      console.error('Error fetching service submissions:', err);
     } finally {
       setLoading(false);
     }
@@ -34,11 +36,11 @@ const UserServices = () => {
     }
   };
 
-  const handleDelete = async (serviceId, organizationId) => {
+  const handleDelete = async (serviceId) => {
     try {
       const result = await Swal.fire({
         title: 'Are you sure?',
-        text: 'This will permanently delete this service. This action cannot be undone!',
+        text: 'This will permanently delete this service submission. This action cannot be undone!',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33',
@@ -47,11 +49,12 @@ const UserServices = () => {
       });
 
       if (result.isConfirmed) {
-        await organizationService.deleteService(serviceId, organizationId);
+        // Using deleteServiceSubmission instead of deleteService
+        await serviceService.deleteServiceSubmission(serviceId);
         
         Swal.fire(
           'Deleted!',
-          'Your service has been deleted.',
+          'Your service submission has been deleted.',
           'success'
         );
         
@@ -59,10 +62,10 @@ const UserServices = () => {
         fetchUserServices();
       }
     } catch (err) {
-      console.error('Error deleting service:', err);
+      console.error('Error deleting service submission:', err);
       Swal.fire(
         'Error!',
-        'Failed to delete service. Please try again.',
+        'Failed to delete service submission. Please try again.',
         'error'
       );
     }
@@ -181,7 +184,7 @@ const UserServices = () => {
                 {service.status === 'pending' && (
                   <>
                     <button
-                      onClick={() => handleDelete(service.id, service.organization_id)}
+                      onClick={() => handleDelete(service.id)}
                       className="text-red-600 hover:text-red-800 mr-4"
                     >
                       Delete

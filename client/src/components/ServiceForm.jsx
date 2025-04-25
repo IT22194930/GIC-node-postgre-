@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import Swal from 'sweetalert2';
 import organizationService from '../services/organizationService';
+import serviceService from '../services/serviceService';
 
 const ServiceForm = () => {
   const [organizations, setOrganizations] = useState([]);
@@ -125,16 +126,20 @@ const ServiceForm = () => {
     try {
       setIsSubmitting(true);
       
-      // Format the data for submission
-      const serviceData = {
-        services: services
-      };
-      
-      // Update the organization with services
-      await organizationService.updateOrganization(
-        selectedOrganization.id, 
-        serviceData
+      // Submit services one by one using the service API
+      const submissionPromises = services.map(service => 
+        serviceService.createService(
+          selectedOrganization.id,
+          {
+            serviceName: service.serviceName,
+            category: service.category,
+            description: service.description,
+            requirements: service.requirements
+          }
+        )
       );
+      
+      await Promise.all(submissionPromises);
       
       // Reset form after successful submission
       setServices([{

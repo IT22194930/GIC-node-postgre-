@@ -91,48 +91,11 @@ class OrganizationController {
       const organizationResult = await OrganizationController.query(organizationQuery, organizationParams);
       const organization = organizationResult.rows[0];
 
-      // Create services
-      let parsedServices;
-      try {
-        parsedServices = typeof services === 'string' ? JSON.parse(services) : services;
-      } catch (error) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid services data format'
-        });
-      }
-
-      const serviceQuery = `
-        INSERT INTO services (
-          organization_id,
-          service_name,
-          category,
-          description,
-          requirements,
-          created_at,
-          updated_at
-        ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-        RETURNING *
-      `;
-
-      const createdServices = await Promise.all(
-        parsedServices.map(service =>
-          OrganizationController.query(serviceQuery, [
-            organization.id,
-            service.serviceName,
-            service.category,
-            service.description,
-            service.requirements
-          ])
-        )
-      );
-
       res.status(201).json({
         success: true,
         message: 'Organization created successfully',
         data: {
-          organization,
-          services: createdServices.map(result => result.rows[0])
+          organization
         }
       });
     } catch (error) {
@@ -192,18 +155,8 @@ class OrganizationController {
       const { status } = req.query;
       let query = `
         SELECT 
-          o.*,
-          json_agg(
-            json_build_object(
-              'id', s.id,
-              'serviceName', s.service_name,
-              'category', s.category,
-              'description', s.description,
-              'requirements', s.requirements
-            )
-          ) as services
+          o.*
         FROM organizations o
-        LEFT JOIN services s ON o.id = s.organization_id
       `;
 
       const params = [];
@@ -212,7 +165,7 @@ class OrganizationController {
         params.push(status);
       }
 
-      query += ` GROUP BY o.id ORDER BY o.created_at DESC`;
+      query += ` ORDER BY o.created_at DESC`;
 
       const result = await OrganizationController.query(query, params);
 
@@ -235,20 +188,9 @@ class OrganizationController {
 
       const query = `
         SELECT 
-          o.*,
-          json_agg(
-            json_build_object(
-              'id', s.id,
-              'serviceName', s.service_name,
-              'category', s.category,
-              'description', s.description,
-              'requirements', s.requirements
-            )
-          ) as services
+          o.*
         FROM organizations o
-        LEFT JOIN services s ON o.id = s.organization_id
         WHERE o.id = $1
-        GROUP BY o.id
       `;
 
       const result = await OrganizationController.query(query, [id]);
@@ -303,22 +245,9 @@ class OrganizationController {
       // Now proceed with the original query
       const query = `
         SELECT 
-          o.*,
-          json_agg(
-            CASE WHEN s.id IS NOT NULL THEN
-              json_build_object(
-                'id', s.id,
-                'serviceName', s.service_name,
-                'category', s.category,
-                'description', s.description,
-                'requirements', s.requirements
-              )
-            ELSE NULL END
-          ) FILTER (WHERE s.id IS NOT NULL) as services
+          o.*
         FROM organizations o
-        LEFT JOIN services s ON o.id = s.organization_id
         WHERE o.user_id = $1
-        GROUP BY o.id
         ORDER BY o.created_at DESC
       `;
 
@@ -381,8 +310,7 @@ class OrganizationController {
         organizationLogo,
         organizationLogoUrl,
         profileImage,
-        profileImageUrl,
-        services
+        profileImageUrl
       } = req.body;
 
       // Get personal details directly from the object
@@ -431,55 +359,11 @@ class OrganizationController {
       const updateResult = await OrganizationController.query(updateQuery, updateParams);
       const updatedOrg = updateResult.rows[0];
 
-      // Parse and validate services
-      let parsedServices;
-      try {
-        parsedServices = typeof services === 'string' ? JSON.parse(services) : services;
-      } catch (error) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid services data format'
-        });
-      }
-
-      // Delete existing services
-      await OrganizationController.query(
-        'DELETE FROM services WHERE organization_id = $1',
-        [id]
-      );
-
-      // Create new services
-      const serviceQuery = `
-        INSERT INTO services (
-          organization_id,
-          service_name,
-          category,
-          description,
-          requirements,
-          created_at,
-          updated_at
-        ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-        RETURNING *
-      `;
-
-      const createdServices = await Promise.all(
-        parsedServices.map(service =>
-          OrganizationController.query(serviceQuery, [
-            id,
-            service.serviceName,
-            service.category,
-            service.description,
-            service.requirements
-          ])
-        )
-      );
-
       res.status(200).json({
         success: true,
         message: 'Organization updated successfully',
         data: {
-          organization: updatedOrg,
-          services: createdServices.map(result => result.rows[0])
+          organization: updatedOrg
         }
       });
     } catch (error) {
@@ -495,14 +379,6 @@ class OrganizationController {
   static async deleteOrganization(req, res) {
     try {
       const { id } = req.params;
-
-      // First delete related services
-      const deleteServicesQuery = `
-        DELETE FROM services
-        WHERE organization_id = $1
-        RETURNING *
-      `;
-      await OrganizationController.query(deleteServicesQuery, [id]);
 
       // Then delete the organization
       const deleteOrgQuery = `
