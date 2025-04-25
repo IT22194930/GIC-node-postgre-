@@ -93,6 +93,36 @@ const serviceService = {
     } catch (error) {
       throw error.response?.data || error.message;
     }
+  },
+
+  // Get services for review by status (admin only)
+  getServicesByStatus: async (status) => {
+    try {
+      const response = await axiosInstance.get(`/pending-review?status=${status}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Update a service's review status (admin only)
+  updatePendingServiceStatus: async (serviceId, status) => {
+    try {
+      const response = await axiosInstance.post(`/review/${serviceId}`, { status });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Delete a service from services_for_review table
+  deleteServiceSubmission: async (serviceId) => {
+    try {
+      const response = await axiosInstance.delete(`/submissions/${serviceId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
   }
 };
 

@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Navigate, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import organizationService from '../services/organizationService';
+import serviceService from '../services/serviceService';
 import Swal from 'sweetalert2';
 
 // Create a custom event to notify the navbar about organization status changes
@@ -62,7 +63,7 @@ const ManageOrganizations = () => {
   const fetchServices = async () => {
     try {
       setServicesLoading(true);
-      const response = await organizationService.getServicesByStatus(serviceStatusFilter);
+      const response = await serviceService.getServicesByStatus(serviceStatusFilter);
       setServices(response.data);
     } catch (err) {
       console.error(`Error fetching ${serviceStatusFilter} services:`, err);
@@ -73,9 +74,9 @@ const ManageOrganizations = () => {
 
   const fetchServiceCounts = async () => {
     try {
-      const pendingResponse = await organizationService.getServicesByStatus("pending");
-      const approvedResponse = await organizationService.getServicesByStatus("approved");
-      const rejectedResponse = await organizationService.getServicesByStatus("rejected");
+      const pendingResponse = await serviceService.getServicesByStatus("pending");
+      const approvedResponse = await serviceService.getServicesByStatus("approved");
+      const rejectedResponse = await serviceService.getServicesByStatus("rejected");
       
       setCounts(prevCounts => ({
         ...prevCounts,
@@ -153,7 +154,7 @@ const ManageOrganizations = () => {
       });
 
       if (result.isConfirmed) {
-        await organizationService.updatePendingServiceStatus(serviceId, newStatus);
+        await serviceService.updatePendingServiceStatus(serviceId, newStatus);
         await fetchServices();
         await fetchServiceCounts();
         Swal.fire(
@@ -217,7 +218,7 @@ const ManageOrganizations = () => {
       });
 
       if (result.isConfirmed) {
-        await organizationService.deleteService(serviceId);
+        await serviceService.deleteServiceSubmission(serviceId);
         await fetchServices();
         await fetchServiceCounts(); // Refresh counts
         Swal.fire(

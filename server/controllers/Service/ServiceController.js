@@ -303,30 +303,40 @@ class ServiceController {
    */
   static async getPendingServices(req, res) {
     try {
+      const { status } = req.query;
+      let statusFilter = 'pending'; // Default to 'pending' if no status provided
+      
+      // Only allow valid status values
+      if (status && ['pending', 'approved', 'rejected'].includes(status)) {
+        statusFilter = status;
+      }
+
       const query = `
         SELECT 
           sfr.*,
           o.institution_name as organization_name,
           u.name as submitter_name,
-          u.email as submitter_email
+          u.email as submitter_email,
+          r.name as reviewer_name
         FROM services_for_review sfr
         JOIN organizations o ON sfr.organization_id = o.id
         JOIN users u ON sfr.submitter_id = u.id
-        WHERE sfr.status = 'pending'
+        LEFT JOIN users r ON sfr.reviewer_id = r.id
+        WHERE sfr.status = $1
         ORDER BY sfr.created_at DESC
       `;
 
-      const result = await ServiceController.query(query, []);
+      const result = await ServiceController.query(query, [statusFilter]);
 
       res.status(200).json({
         success: true,
         data: result.rows
       });
     } catch (error) {
-      console.error('Error fetching pending services:', error);
+      console.error('Error fetching services:', error);
       res.status(500).json({
         success: false,
-        message: 'Error fetching pending services',
+        message: 'Error fetching services',
         error: error.message
       });
     }
