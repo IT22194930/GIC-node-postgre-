@@ -9,7 +9,14 @@ export const authService = {
       },
       body: JSON.stringify(userData),
     });
-    return response.json();
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || data.message || 'Registration failed');
+    }
+    
+    return data;
   },
 
   async login(credentials) {
@@ -20,6 +27,13 @@ export const authService = {
       },
       body: JSON.stringify(credentials),
     });
-    return response.json();
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || data.message || 'Invalid credentials');
+    }
+    
+    return data;
   },
 };
