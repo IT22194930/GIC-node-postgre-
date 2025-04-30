@@ -107,27 +107,24 @@ const LandingPage = () => {
 
       {/* Footer with language options */}
       <footer className="relative z-10 py-4 mt-8 border-t border-blue-800/30">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-center items-center">
           <div className="flex items-center mb-2 md:mb-0">
             <img src="/sl-logo.png" alt="Sri Lanka Logo" className="h-10 mr-3" />
             <p className="text-blue-300 text-sm">© {new Date().getFullYear()} Organization Information Portal</p>
           </div>
-          <div className="flex space-x-6">
-            <a href="#" className="text-blue-300 hover:text-white transition-colors">Sinhala</a>
-            <a href="#" className="text-blue-300 hover:text-white transition-colors">Tamil</a>
-            <a href="#" className="text-blue-300 hover:text-white transition-colors">English</a>
-          </div>
         </div>
       </footer>
 
-      {/* Animations */}
-      <style jsx global>{`
-        @keyframes float {
-          0% { transform: translateY(0px) translateX(0px); }
-          50% { transform: translateY(-20px) translateX(10px); }
-          100% { transform: translateY(0px) translateX(0px); }
-        }
-      `}</style>
+      {/* Adding animation styles via regular style tag */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          @keyframes float {
+            0% { transform: translateY(0px) translateX(0px); }
+            50% { transform: translateY(-20px) translateX(10px); }
+            100% { transform: translateY(0px) translateX(0px); }
+          }
+        `
+      }} />
     </div>
   );
 };
