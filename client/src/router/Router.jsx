@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from '../pages/Login';
 import Register from '../pages/Register';
 import Home from '../pages/Home';
+import LandingPage from '../pages/LandingPage';
 import { useAuth } from '../hooks/useAuth';
 import Profile from '../pages/Profile';
 import UpdateProfile from '../pages/UpdateProfile';
@@ -17,7 +18,7 @@ const AppRouter = () => {
   const { isAuthenticated, user } = useAuth();
 
   const HomeComponent = () => {
-    if (!isAuthenticated) return <Navigate to="/login" />;
+    if (!isAuthenticated) return <LandingPage />;
     if (user?.role === 'admin') return <Navigate to="/admin" />;
     return <Home />;
   };
@@ -27,7 +28,7 @@ const AppRouter = () => {
       <Routes>
         <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
         <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
-        <Route path="/" element={isAuthenticated ? <HomeComponent /> : <Navigate to="/login" />} />
+        <Route path="/" element={<HomeComponent />} />
         <Route path="/admin" element={isAuthenticated ? <AdminHome /> : <Navigate to="/login" />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/update-profile" element={<UpdateProfile />} />
