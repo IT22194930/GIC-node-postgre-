@@ -36,37 +36,8 @@ CREATE TABLE IF NOT EXISTS services (
   category VARCHAR(255) NOT NULL,
   description TEXT NOT NULL,
   requirements TEXT NOT NULL,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Create pending_organizations table
-CREATE TABLE IF NOT EXISTS pending_organizations (
-  id SERIAL PRIMARY KEY,
-  province VARCHAR(100) NOT NULL,
-  district VARCHAR(100) NOT NULL,
-  institution_name VARCHAR(255) NOT NULL,
-  website_url VARCHAR(255),
-  name VARCHAR(255) NOT NULL,
-  designation VARCHAR(255) NOT NULL,
-  email VARCHAR(255) NOT NULL,
-  contact_number VARCHAR(20) NOT NULL,
-  organization_logo TEXT,
-  profile_image TEXT,
   status VARCHAR(20) DEFAULT 'pending',
   user_id INTEGER REFERENCES users(id),
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Create pending_services table
-CREATE TABLE IF NOT EXISTS pending_services (
-  id SERIAL PRIMARY KEY,
-  organization_id INTEGER REFERENCES pending_organizations(id) ON DELETE CASCADE,
-  service_name VARCHAR(255) NOT NULL,
-  category VARCHAR(255) NOT NULL,
-  description TEXT NOT NULL,
-  requirements TEXT NOT NULL,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
