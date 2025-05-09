@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { provinces, getDistricts } from '../utils/locationData';
 import organizationService from '../services/organizationService';
-import pendingOrganizationService from '../services/pendingOrganizationService';
 import Navbar from '../components/Navbar';
 import { toast } from 'react-toastify';
 
@@ -36,19 +35,14 @@ const OrganizationEdit = ({ isPending = false }) => {
     const fetchOrganizationDetails = async () => {
       try {
         setLoading(true);
-        let response;
         
-        if (isPending) {
-          response = await pendingOrganizationService.getPendingOrganizationById(id);
-        } else {
-          response = await organizationService.getOrganizationById(id);
-        }
+        const response = await organizationService.getOrganizationById(id);
         
         const organization = response.data;
         
         if (organization.status !== 'pending') {
           toast.error('Only pending organizations can be edited');
-          navigate(isPending ? `/pending-organizations/${id}/details` : `/organizations/${id}/details`);
+          navigate(`/organizations/${id}/details`);
           return;
         }
 
@@ -103,7 +97,7 @@ const OrganizationEdit = ({ isPending = false }) => {
     };
 
     fetchOrganizationDetails();
-  }, [id, navigate, isPending]);
+  }, [id, navigate]);
 
   useEffect(() => {
     if (formData.province) {
@@ -214,14 +208,10 @@ const OrganizationEdit = ({ isPending = false }) => {
       };
 
       // Submit form
-      if (isPending) {
-        await pendingOrganizationService.updatePendingOrganization(id, organizationData);
-      } else {
-        await organizationService.updateOrganization(id, organizationData);
-      }
+      await organizationService.updateOrganization(id, organizationData);
       
       toast.success('Organization updated successfully!');
-      navigate(isPending ? `/pending-organizations/${id}/details` : `/organizations/${id}/details`);
+      navigate(`/organizations/${id}/details`);
     } catch (error) {
       console.error('Update error:', error);
       toast.error(error.message || 'Error updating organization details');
@@ -273,7 +263,7 @@ const OrganizationEdit = ({ isPending = false }) => {
                 {isPending ? 'Edit Pending Organization' : 'Edit Organization'}
               </h2>
               <button
-                onClick={() => navigate(isPending ? `/pending-organizations/${id}/details` : `/organizations/${id}/details`)}
+                onClick={() => navigate(`/organizations/${id}/details`)}
                 className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
               >
                 Cancel
@@ -515,7 +505,7 @@ const OrganizationEdit = ({ isPending = false }) => {
             <div className="flex space-x-4">
               <button
                 type="button"
-                onClick={() => navigate(isPending ? `/pending-organizations/${id}/details` : `/organizations/${id}/details`)}
+                onClick={() => navigate(`/organizations/${id}/details`)}
                 className="w-1/2 py-3 rounded-md bg-gray-500 hover:bg-gray-600 text-white"
               >
                 Cancel

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const OrganizationController = require('../controllers/OrganizationController');
-const { auth, isAdmin } = require('../middleware/auth');
+const OrganizationController = require('../../controllers/Organization/OrganizationController');
+const { auth, isAdmin } = require('../../middleware/auth');
 
 // All routes require authentication
 router.use(auth);

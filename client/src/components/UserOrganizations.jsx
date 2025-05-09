@@ -2,11 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import organizationService from '../services/organizationService';
 import Swal from 'sweetalert2';
-import pendingOrganizationService from '../services/pendingOrganizationService';
 
 const UserOrganizations = () => {
   const [organizations, setOrganizations] = useState([]);
-  const [pendingOrganizations, setPendingOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -17,14 +15,10 @@ const UserOrganizations = () => {
   const fetchUserOrganizations = async () => {
     try {
       setLoading(true);
-      // Fetch both regular and pending organizations in parallel
-      const [orgResponse, pendingOrgResponse] = await Promise.all([
-        organizationService.getUserOrganizations(),
-        pendingOrganizationService.getUserPendingOrganizations()
-      ]);
+      // Only fetch regular organizations
+      const orgResponse = await organizationService.getUserOrganizations();
       
       setOrganizations(orgResponse.data || []);
-      setPendingOrganizations(pendingOrgResponse.data || []);
       setError(null);
     } catch (err) {
       setError('Failed to fetch your organizations. Please try again later.');
@@ -42,7 +36,7 @@ const UserOrganizations = () => {
     }
   };
 
-  const handleDelete = async (id, isPending = false) => {
+  const handleDelete = async (id) => {
     try {
       const result = await Swal.fire({
         title: 'Are you sure?',
@@ -55,11 +49,7 @@ const UserOrganizations = () => {
       });
 
       if (result.isConfirmed) {
-        if (isPending) {
-          await pendingOrganizationService.deletePendingOrganization(id);
-        } else {
-          await organizationService.deleteOrganization(id);
-        }
+        await organizationService.deleteOrganization(id);
         
         Swal.fire(
           'Deleted!',
@@ -80,7 +70,7 @@ const UserOrganizations = () => {
     }
   };
 
-  const handleSubmitToOrganization = async (pendingOrgId) => {
+  const handleSubmitToOrganization = async (orgId) => {
     try {
       await Swal.fire({
         title: 'Submit Organization?',
@@ -92,32 +82,32 @@ const UserOrganizations = () => {
         confirmButtonText: 'Yes, submit it!'
       }).then(async (result) => {
         if (result.isConfirmed) {
-          // First, get the pending organization details
-          const pendingOrgResponse = await pendingOrganizationService.getPendingOrganizationById(pendingOrgId);
-          const pendingOrg = pendingOrgResponse.data;
+          // Get the organization details
+          const orgResponse = await organizationService.getOrganizationById(orgId);
+          const org = orgResponse.data;
           
           // Format the data for the organizations table
           const organizationData = {
-            province: pendingOrg.province,
-            district: pendingOrg.district,
-            institutionName: pendingOrg.institution_name,
-            websiteUrl: pendingOrg.website_url,
+            province: org.province,
+            district: org.district,
+            institutionName: org.institution_name,
+            websiteUrl: org.website_url,
             personalDetails: {
-              name: pendingOrg.name,
-              designation: pendingOrg.designation,
-              email: pendingOrg.email,
-              contactNumber: pendingOrg.contact_number
+              name: org.name,
+              designation: org.designation,
+              email: org.email,
+              contactNumber: org.contact_number
             },
-            organizationLogoUrl: pendingOrg.organization_logo,
-            profileImageUrl: pendingOrg.profile_image,
-            services: pendingOrg.services || []
+            organizationLogoUrl: org.organization_logo,
+            profileImageUrl: org.profile_image,
+            services: org.services || []
           };
           
-          // Create the organization in the main organizations table
-          await organizationService.createOrganization(organizationData);
-          
-          // Delete the pending organization
-          await pendingOrganizationService.deletePendingOrganization(pendingOrgId);
+          // Update the organization status to 'pending'
+          await organizationService.updateOrganization(orgId, {
+            ...organizationData,
+            status: 'pending'
+          });
           
           Swal.fire(
             'Submitted!',
@@ -191,13 +181,8 @@ const UserOrganizations = () => {
       </div>
     );
   }
-
-  const allOrganizations = [
-    ...pendingOrganizations.map(org => ({ ...org, isPending: true })),
-    ...organizations.map(org => ({ ...org, isPending: false }))
-  ];
   
-  if (allOrganizations.length === 0) {
+  if (organizations.length === 0) {
     return (
       <div className="p-6 bg-white rounded-lg shadow-md">
         <p className="text-gray-600 text-center mb-4">You haven't submitted any organization yet.</p>
@@ -226,8 +211,8 @@ const UserOrganizations = () => {
       </div>
 
       <div className="space-y-6">
-        {allOrganizations.map((org) => (
-          <div key={`${org.isPending ? 'pending-' : ''}${org.id}`} className="border rounded-md p-4">
+        {organizations.map((org) => (
+          <div key={org.id} className="border rounded-md p-4">
             <div className="flex justify-between items-start mb-3">
               <h3 className="text-lg font-medium">{org.institution_name}</h3>
               <div className="flex gap-2">
@@ -253,7 +238,7 @@ const UserOrganizations = () => {
             <div className="border-t pt-3 mt-3 flex justify-between">
               <div>
                 <Link
-                  to={org.isPending ? `/pending-organizations/${org.id}/details` : `/organizations/${org.id}/details`}
+                  to={`/organizations/${org.id}/details`}
                   className="text-blue-600 hover:text-blue-800 mr-4"
                 >
                   View Details
@@ -261,26 +246,26 @@ const UserOrganizations = () => {
                 {org.status === 'pending' && (
                   <>
                     <Link
-                      to={org.isPending ? `/pending-organizations/${org.id}/edit` : `/organizations/${org.id}/edit`}
+                      to={`/organizations/${org.id}/edit`}
                       className="text-green-600 hover:text-green-800 mr-4"
                     >
                       Edit
                     </Link>
                     <button
-                      onClick={() => handleDelete(org.id, org.isPending)}
+                      onClick={() => handleDelete(org.id)}
                       className="text-red-600 hover:text-red-800 mr-4"
                     >
                       Delete
                     </button>
-                    {org.isPending && (
-                      <button
-                        onClick={() => handleSubmitToOrganization(org.id)}
-                        className="bg-blue-500 text-white px-3 py-1 text-xs rounded hover:bg-blue-600"
-                      >
-                        Submit Organization
-                      </button>
-                    )}
                   </>
+                )}
+                {!org.status && (
+                  <button
+                    onClick={() => handleSubmitToOrganization(org.id)}
+                    className="bg-blue-500 text-white px-3 py-1 text-xs rounded hover:bg-blue-600"
+                  >
+                    Submit Organization
+                  </button>
                 )}
               </div>
               <div>

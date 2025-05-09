@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import organizationService from '../services/organizationService';
-import pendingOrganizationService from '../services/pendingOrganizationService';
 import Navbar from '../components/Navbar';
 import Swal from 'sweetalert2';
 
@@ -17,15 +16,8 @@ const OrganizationUserView = ({ isPending = false }) => {
     const fetchOrganizationDetails = async () => {
       try {
         setLoading(true);
-        let response;
 
-        if (isPending) {
-          // Fetch from pending organizations
-          response = await pendingOrganizationService.getPendingOrganizationById(id);
-        } else {
-          // Fetch from regular organizations
-          response = await organizationService.getOrganizationById(id);
-        }
+        const response = await organizationService.getOrganizationById(id);
 
         setOrganization(response.data);
         setError(null);
@@ -37,7 +29,7 @@ const OrganizationUserView = ({ isPending = false }) => {
     };
 
     fetchOrganizationDetails();
-  }, [id, isPending]);
+  }, [id]);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -81,11 +73,7 @@ const OrganizationUserView = ({ isPending = false }) => {
       });
 
       if (result.isConfirmed) {
-        if (isPending) {
-          await pendingOrganizationService.deletePendingOrganization(id);
-        } else {
-          await organizationService.deleteOrganization(id);
-        }
+        await organizationService.deleteOrganization(id);
 
         Swal.fire(
           'Deleted!',
@@ -139,9 +127,6 @@ const OrganizationUserView = ({ isPending = false }) => {
           
           // Create the organization in the main organizations table
           await organizationService.createOrganization(organizationData);
-          
-          // Delete the pending organization
-          await pendingOrganizationService.deletePendingOrganization(id);
           
           Swal.fire(
             'Submitted!',
