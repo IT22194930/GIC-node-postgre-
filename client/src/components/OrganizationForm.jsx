@@ -27,7 +27,8 @@ const OrganizationForm = () => {
     organizationLogo: null,
     organizationLogoUrl: '',
     profileImage: null,
-    profileImageUrl: ''
+    profileImageUrl: '',
+    isSubmitted: false
   });
 
   useEffect(() => {
@@ -100,9 +101,7 @@ const OrganizationForm = () => {
   };
 
   const removeService = (index) => {
-    // Don't allow removing the last service
     if (services.length <= 1) return;
-    
     setServices(prev => prev.filter((_, i) => i !== index));
   };
 
@@ -139,13 +138,16 @@ const OrganizationForm = () => {
         organizationLogoUrl: formData.organizationLogoUrl,
         profileImage: formData.profileImage,
         profileImageUrl: formData.profileImageUrl,
-        services: services
+        isSubmitted: false,
+        services: services.map(service => ({
+          ...service,
+          isSubmitted: false
+        }))
       };
 
       await organizationService.createOrganization(organizationData);
-      toast.success('Organization registration submitted for review!');
+      toast.success('Organization registration saved successfully!');
       
-      // Reset form
       setFormData({
         province: '',
         district: '',
@@ -160,7 +162,8 @@ const OrganizationForm = () => {
         organizationLogo: null,
         organizationLogoUrl: '',
         profileImage: null,
-        profileImageUrl: ''
+        profileImageUrl: '',
+        isSubmitted: false
       });
       
       setServices([{
@@ -170,14 +173,13 @@ const OrganizationForm = () => {
         requirements: ''
       }]);
       
-      // Reload page to show the new organization in the list
       setTimeout(() => {
         window.location.reload();
-      }, 1500); // Small delay to ensure toast message is visible
+      }, 1500);
       
     } catch (error) {
       console.error('Submission error:', error);
-      toast.error(error.message || 'Error submitting organization details');
+      toast.error(error.message || 'Error saving organization details');
     } finally {
       setIsSubmitting(false);
     }
