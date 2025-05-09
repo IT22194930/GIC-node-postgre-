@@ -35,7 +35,9 @@ class OrganizationController {
         organizationLogoUrl,
         profileImage,
         profileImageUrl,
-        services
+        documentPdf,
+        services,
+        isSubmitted = false
       } = req.body;
 
       // Get user ID from authentication middleware
@@ -65,11 +67,13 @@ class OrganizationController {
           contact_number,
           organization_logo,
           profile_image,
+          documentPdf,
           status,
           user_id,
+          isSubmitted,
           created_at,
           updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
         RETURNING *
       `;
 
@@ -84,8 +88,10 @@ class OrganizationController {
         contactNumber,
         organizationLogo || organizationLogoUrl,
         profileImage || profileImageUrl,
+        documentPdf || null,
         'pending',
-        userId // Add user ID to parameters
+        userId,
+        isSubmitted
       ];
 
       const organizationResult = await OrganizationController.query(organizationQuery, organizationParams);
@@ -382,7 +388,9 @@ class OrganizationController {
         organizationLogoUrl,
         profileImage,
         profileImageUrl,
-        services
+        documentPdf,
+        services,
+        isSubmitted
       } = req.body;
 
       // Get personal details directly from the object
@@ -409,8 +417,10 @@ class OrganizationController {
           contact_number = $8,
           organization_logo = $9,
           profile_image = $10,
+          documentPdf = $11,
+          isSubmitted = $12,
           updated_at = NOW()
-        WHERE id = $11
+        WHERE id = $13
         RETURNING *
       `;
 
@@ -425,6 +435,8 @@ class OrganizationController {
         contactNumber,
         organizationLogo || organizationLogoUrl || organization.organization_logo,
         profileImage || profileImageUrl || organization.profile_image,
+        documentPdf !== undefined ? documentPdf : organization.documentPdf,
+        isSubmitted !== undefined ? isSubmitted : organization.isSubmitted,
         id
       ];
 

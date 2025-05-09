@@ -85,7 +85,9 @@ class ServiceController {
         serviceName, 
         category, 
         description, 
-        requirements 
+        requirements,
+        documentPdf,
+        isSubmitted = false
       } = req.body;
 
       // Validate required fields
@@ -95,6 +97,9 @@ class ServiceController {
           message: 'Missing required fields'
         });
       }
+
+      // Get user ID from authentication middleware
+      const userId = req.user.id;
 
       // Check if organization exists
       const orgQuery = 'SELECT * FROM organizations WHERE id = $1';
@@ -114,9 +119,12 @@ class ServiceController {
           category,
           description,
           requirements,
+          documentPdf,
+          isSubmitted,
+          user_id,
           created_at,
           updated_at
-        ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
         RETURNING *
       `;
 
@@ -125,7 +133,10 @@ class ServiceController {
         serviceName,
         category,
         description,
-        requirements || ''
+        requirements || '',
+        documentPdf || null,
+        isSubmitted,
+        userId
       ];
 
       const result = await ServiceController.query(serviceQuery, serviceParams);
@@ -151,7 +162,9 @@ class ServiceController {
         serviceName, 
         category, 
         description, 
-        requirements 
+        requirements,
+        documentPdf,
+        isSubmitted
       } = req.body;
 
       // Validate required fields
@@ -185,8 +198,10 @@ class ServiceController {
           category = $2,
           description = $3,
           requirements = $4,
+          documentPdf = $5,
+          isSubmitted = $6,
           updated_at = NOW()
-        WHERE id = $5
+        WHERE id = $7
         RETURNING *
       `;
 
@@ -195,6 +210,8 @@ class ServiceController {
         category,
         description,
         requirements || service.requirements || '',
+        documentPdf !== undefined ? documentPdf : service.documentPdf,
+        isSubmitted !== undefined ? isSubmitted : service.isSubmitted,
         id
       ];
 
