@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import organizationService from '../services/organizationService';
 import Navbar from '../components/Navbar';
 import Swal from 'sweetalert2';
-import { toast } from 'react-toastify';
 
 const OrganizationUserView = ({ isPending = false }) => {
   const { id } = useParams();
@@ -12,8 +11,6 @@ const OrganizationUserView = ({ isPending = false }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [documentPdf, setDocumentPdf] = useState(null);
-  const [uploadingDocument, setUploadingDocument] = useState(false);
 
   useEffect(() => {
     const fetchOrganizationDetails = async () => {
@@ -99,17 +96,6 @@ const OrganizationUserView = ({ isPending = false }) => {
 
   const handleSubmitToOrganization = async () => {
     try {
-      // Check if confirmation document is uploaded
-      if (!organization.documentPdf) {
-        Swal.fire({
-          title: 'Missing Document',
-          text: 'Please upload a confirmation document before submitting for approval.',
-          icon: 'warning',
-          confirmButtonColor: '#3085d6'
-        });
-        return;
-      }
-
       setSubmitting(true);
       
       await Swal.fire({
@@ -122,7 +108,7 @@ const OrganizationUserView = ({ isPending = false }) => {
         confirmButtonText: 'Yes, submit it!'
       }).then(async (result) => {
         if (result.isConfirmed) {
-          // Format the data for updating the organization
+          // Format the data for the organizations table
           const organizationData = {
             province: organization.province,
             district: organization.district,
@@ -136,14 +122,11 @@ const OrganizationUserView = ({ isPending = false }) => {
             },
             organizationLogoUrl: organization.organization_logo,
             profileImageUrl: organization.profile_image,
-            documentPdf: organization.documentPdf,
-            services: organization.services || [],
-            isSubmitted: true, // Mark as submitted
-            status: 'pending' // Set status to pending for admin review
+            services: organization.services || []
           };
           
-          // Update the organization with isSubmitted=true
-          await organizationService.updateOrganization(id, organizationData);
+          // Create the organization in the main organizations table
+          await organizationService.createOrganization(organizationData);
           
           Swal.fire(
             'Submitted!',
@@ -151,8 +134,8 @@ const OrganizationUserView = ({ isPending = false }) => {
             'success'
           );
           
-          // Refresh the page to show updated status
-          window.location.reload();
+          // Navigate to home page after submission
+          navigate('/');
         }
       });
     } catch (err) {
@@ -167,69 +150,19 @@ const OrganizationUserView = ({ isPending = false }) => {
     }
   };
 
-  const handleDocumentChange = (e) => {
-    setDocumentPdf(e.target.files[0]);
-  };
-
-  const handleDocumentUpload = async () => {
-    if (!documentPdf) {
-      toast.error('Please select a document to upload');
-      return;
-    }
-
-    try {
-      setUploadingDocument(true);
-
-      // In a real app, you'd upload the file to a server/storage
-      // For this example, we'll just update the documentPdf field with the filename
-      const updatedData = {
-        ...organization,
-        documentPdf: documentPdf.name,
-      };
-
-      await organizationService.updateOrganization(id, updatedData);
-
-      // Update local state
-      setOrganization(prev => ({
-        ...prev,
-        documentPdf: documentPdf.name
-      }));
-
-      Swal.fire({
-        title: 'Document Uploaded',
-        text: 'Your confirmation document has been uploaded successfully',
-        icon: 'success',
-        confirmButtonColor: '#3085d6'
-      });
-
-      setDocumentPdf(null);
-    } catch (err) {
-      console.error('Error uploading document:', err);
-      Swal.fire(
-        'Error!',
-        'Failed to upload document. Please try again.',
-        'error'
-      );
-    } finally {
-      setUploadingDocument(false);
-    }
-  };
-
   const getStatusMessage = () => {
     if (!organization) return null;
     
-    // Check if the organization has been submitted
-    if (!organization.isSubmitted) {
+    if (isPending) {
       return (
         <div className="mb-6 p-4 rounded-md border bg-blue-50 border-blue-200">
           <div className="text-blue-700">
-            <h3 className="font-medium">Organization not yet submitted</h3>
-            <p className="mt-1 text-sm">This organization is saved as a draft. Click "Submit for Approval" to send it for review.</p>
+            <h3 className="font-medium">Organization awaiting submission</h3>
+            <p className="mt-1 text-sm">This organization is saved as a draft. Click "Submit Organization" to send it for review.</p>
           </div>
         </div>
       );
     } else {
-      // If the organization has been submitted, show status-specific messages
       switch (organization.status) {
         case 'pending':
           return (
@@ -313,13 +246,22 @@ const OrganizationUserView = ({ isPending = false }) => {
                 Back
               </button>
               <h1 className="text-2xl font-semibold text-gray-900">{organization?.institution_name}</h1>
-              {!organization?.isSubmitted && (
-                <span className="px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800">
+              {isPending && (
+                <span className="px-3 py-1 text-sm font-semibold rounded-full bg-purple-100 text-purple-800">
                   Draft
                 </span>
               )}
             </div>
             <div className="space-x-2">
+              {isPending && (
+                <button
+                  onClick={handleSubmitToOrganization}
+                  disabled={submitting}
+                  className={`bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 ${submitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {submitting ? 'Submitting...' : 'Submit Organization'}
+                </button>
+              )}
               {organization?.status === 'pending' && (
                 <>
                   <button
@@ -440,107 +382,14 @@ const OrganizationUserView = ({ isPending = false }) => {
 
             {getStatusMessage()}
 
-            {/* Confirmation Document Section */}
-            <div className="mb-6 border rounded-lg p-6 bg-gray-50">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">Confirmation Document</h2>
-                {organization.documentPdf && (
-                  <span className="px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
-                    Document Uploaded
-                  </span>
-                )}
-              </div>
-
-              {!organization.isSubmitted && (
-                <div className="mb-2 p-3 border border-yellow-300 rounded-md bg-yellow-50">
-                  <div className="flex items-start">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    <p className="text-sm text-yellow-700">
-                      <span className="font-medium">Required:</span> You must upload a confirmation document before submitting for approval.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {organization.documentPdf ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="bg-blue-100 p-3 rounded-lg mr-4">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="font-medium">{organization.documentPdf}</p>
-                      <p className="text-sm text-gray-500">PDF Document</p>
-                    </div>
-                  </div>
-                  
-                  {/* Only show replace button if status is pending or user is still editing */}
-                  {(organization.status === 'pending' || !organization.status) && (
-                    <div className="ml-4">
-                      <label
-                        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 cursor-pointer"
-                      >
-                        Replace Document
-                        <input
-                          type="file"
-                          onChange={handleDocumentChange}
-                          accept="application/pdf"
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                  <p className="mb-2 text-lg font-medium text-gray-700">Upload Confirmation Document</p>
-                  <p className="mb-6 text-sm text-gray-500">PDF files up to 10MB</p>
-                  <label className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 cursor-pointer">
-                    Browse Files
-                    <input
-                      type="file"
-                      onChange={handleDocumentChange}
-                      accept="application/pdf"
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-              )}
-
-              {/* Show this section only if document is selected but not yet uploaded */}
-              {documentPdf && (
-                <div className="mt-4 p-4 border rounded-lg bg-blue-50 flex justify-between items-center">
-                  <div className="flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>Selected: {documentPdf.name}</span>
-                  </div>
-                  <button
-                    onClick={handleDocumentUpload}
-                    disabled={uploadingDocument}
-                    className={`bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    {uploadingDocument ? 'Uploading...' : 'Upload Document'}
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Submit for Approval - Prominent Button */}
-            {!organization?.isSubmitted && (
-              <div className="mb-6">
+            {isPending && (
+              <div className="mb-6 flex justify-center">
                 <button
                   onClick={handleSubmitToOrganization}
-                  disabled={submitting || !organization.documentPdf}
-                  className={`w-full bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-blue-700 transition duration-300 ease-in-out transform hover:scale-105 text-lg font-medium flex items-center justify-center ${!organization.documentPdf ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={submitting}
+                  className={`bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-blue-700 transition transform hover:scale-105 text-lg ${
+                    submitting ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
                   {submitting ? (
                     <span className="flex items-center">
@@ -552,18 +401,13 @@ const OrganizationUserView = ({ isPending = false }) => {
                     </span>
                   ) : (
                     <span className="flex items-center">
-                      Submit for Approval
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                      Submit Organization for Review 
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
                       </svg>
                     </span>
                   )}
                 </button>
-                {!organization.documentPdf && (
-                  <p className="mt-2 text-center text-sm text-red-500">
-                    Please upload a confirmation document before submitting
-                  </p>
-                )}
               </div>
             )}
 
