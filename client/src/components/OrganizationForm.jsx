@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { provinces, getDistricts } from '../utils/locationData';
-import pendingOrganizationService from '../services/pendingOrganizationService';
+import organizationService from '../services/organizationService';
 import { toast } from 'react-toastify';
 
 const OrganizationForm = () => {
@@ -142,7 +142,7 @@ const OrganizationForm = () => {
         services: services
       };
 
-      await pendingOrganizationService.createPendingOrganization(organizationData);
+      await organizationService.createOrganization(organizationData);
       toast.success('Organization registration submitted for review!');
       
       // Reset form
