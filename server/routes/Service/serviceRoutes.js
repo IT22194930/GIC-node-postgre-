@@ -2,18 +2,18 @@
 const express = require('express');
 const router = express.Router();
 const ServiceController = require('../../controllers/Service/ServiceController');
-const authMiddleware = require('../../middleware/auth');
+const { auth } = require('../../middleware/auth');
 
 // Public routes
 router.get('/', ServiceController.getAllServices);
 router.get('/search', ServiceController.searchServices);
-router.get('/:id', ServiceController.getServiceById);
 router.get('/organization/:organization_id', ServiceController.getServicesByOrganization);
 router.get('/category/:category', ServiceController.getServicesByCategory);
+router.get('/:id', ServiceController.getServiceById);
 
 // Protected routes (require authentication)
-router.post('/', authMiddleware, ServiceController.createService);
-router.put('/:id', authMiddleware, ServiceController.updateService);
-router.delete('/:id', authMiddleware, ServiceController.deleteService);
+router.post('/', auth, ServiceController.createService);
+router.put('/:id', auth, ServiceController.updateService);
+router.delete('/:id', auth, ServiceController.deleteService);
 
 module.exports = router;
