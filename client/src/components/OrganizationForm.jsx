@@ -361,7 +361,7 @@ const OrganizationForm = () => {
           </div>
           <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <label className="text-gray-700 font-medium block mb-1">Full Name * <span className="text-sm text-gray-500">(letters and dots allowed)</span></label>
+              <label className="text-gray-700 font-medium block mb-1">Full Name *</label>
               <input
                 type="text"
                 name="personalDetails.name"
