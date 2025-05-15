@@ -58,10 +58,24 @@ const OrganizationForm = () => {
     const { name, value } = e.target;
     if (name.includes('personalDetails.')) {
       const field = name.split('.')[1];
-      setFormData(prev => ({
-        ...prev,
-        personalDetails: { ...prev.personalDetails, [field]: value }
-      }));
+      
+      // Special handling for contact number - limit to 10 numeric digits
+      if (field === 'contactNumber') {
+        // Allow only numeric input and limit to 10 digits
+        const numericValue = value.replace(/\D/g, '');
+        const limitedValue = numericValue.slice(0, 10);
+        
+        setFormData(prev => ({
+          ...prev,
+          personalDetails: { ...prev.personalDetails, [field]: limitedValue }
+        }));
+      } else {
+        // Regular handling for other personal details fields
+        setFormData(prev => ({
+          ...prev,
+          personalDetails: { ...prev.personalDetails, [field]: value }
+        }));
+      }
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -339,15 +353,23 @@ const OrganizationForm = () => {
               />
             </div>
             <div>
-              <label>Contact Number *</label>
+              <label>Contact Number * (10 digits)</label>
               <input
                 type="tel"
                 name="personalDetails.contactNumber"
                 value={formData.personalDetails.contactNumber}
                 onChange={handleInputChange}
                 required
+                pattern="[0-9]{10}"
+                maxLength="10"
                 className="w-full p-3 border rounded"
                 placeholder="Your phone number"
+                onKeyPress={(e) => {
+                  // Allow only numeric input
+                  if (!/[0-9]/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
               />
             </div>
           </div>
