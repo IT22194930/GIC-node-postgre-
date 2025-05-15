@@ -69,7 +69,18 @@ const OrganizationForm = () => {
           ...prev,
           personalDetails: { ...prev.personalDetails, [field]: limitedValue }
         }));
-      } else {
+      } 
+      // Special handling for name - allow letters, spaces, and dots
+      else if (field === 'name') {
+        // Allow only letters, spaces, and dots, remove any numbers or other special characters
+        const sanitizedValue = value.replace(/[^A-Za-z\s.]/g, '');
+        
+        setFormData(prev => ({
+          ...prev,
+          personalDetails: { ...prev.personalDetails, [field]: sanitizedValue }
+        }));
+      }
+      else {
         // Regular handling for other personal details fields
         setFormData(prev => ({
           ...prev,
@@ -326,6 +337,14 @@ const OrganizationForm = () => {
                 required
                 className="w-full p-3 border rounded"
                 placeholder="Your full name"
+                pattern="[A-Za-z\s.]+"
+                title="Please enter only letters, spaces, and dots"
+                onKeyPress={(e) => {
+                  // Allow only letters, spaces, and dots
+                  if (!/[A-Za-z\s.]/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
               />
             </div>
             <div>
