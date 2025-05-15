@@ -4,6 +4,10 @@ const { exec } = require('child_process');
 const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
 const connection = require('../../config/database');
+const { storage } = require('../../config/firebase');
+const { ref, uploadBytes, getDownloadURL } = require('firebase/storage');
+const os = require('os');
+
 class OrganizationController {
   static async query(sql, params) {
     try {
@@ -127,54 +131,105 @@ class OrganizationController {
       });
       const docxBuffer = doc.getZip().generate({ type: 'nodebuffer' });
 
-      // Ensure output dir exists
-      const outDir = path.resolve(__dirname, '../../generated-docs');
-      if (!fs.existsSync(outDir)) fs.mkdirSync(outDir);
+      // Variables for Firebase URLs
+      let firebaseDocxUrl;
+      let firebasePdfUrl;
 
-      const docxFilename = `organization-${organization.id}.docx`;
-      const docxPath = path.join(outDir, docxFilename);
-      fs.writeFileSync(docxPath, docxBuffer);
+      // Upload DOCX to Firebase
+      try {
+        const docxFilename = `organization-${organization.id}.docx`;
+        const docxStorageRef = ref(storage, `organizations/${organization.id}/${docxFilename}`);
+        
+        await uploadBytes(docxStorageRef, docxBuffer);
+        firebaseDocxUrl = await getDownloadURL(docxStorageRef);
+        
+        // Update the organization with the DOCX URL
+        await OrganizationController.query(
+          'UPDATE organizations SET docx_firebase_url = $1 WHERE id = $2',
+          [firebaseDocxUrl, organization.id]
+        );
+      } catch (err) {
+        console.error('Error uploading DOCX to Firebase:', err);
+      }
 
       // 4) Convert DOCX → PDF
-      // Allow override via environment var or default Windows path
-      const sofficeCmd = process.env.SOFFICE_PATH
-        || (process.platform === 'win32'
-            ? `"C:\\Program Files\\LibreOffice\\program\\soffice.exe"`
-            : 'soffice');
+      try {
+        // Create temporary files for conversion
+        const tempDir = os.tmpdir();
+        const docxTempPath = path.join(tempDir, `organization-${organization.id}.docx`);
+        const pdfFilename = `organization-${organization.id}.pdf`;
+        
+        // Write the DOCX buffer to temp file
+        fs.writeFileSync(docxTempPath, docxBuffer);
+        
+        // Allow override via environment var or default based on platform
+        const sofficeCmd = process.env.SOFFICE_PATH
+          || (process.platform === 'win32'
+              ? `"C:\\Program Files\\LibreOffice\\program\\soffice.exe"`
+              : 'soffice');
 
-      const pdfFilename = `organization-${organization.id}.pdf`;
-      await new Promise((resolve, reject) => {
-        exec(
-          `${sofficeCmd} --headless --convert-to pdf "${docxPath}" --outdir "${outDir}"`,
-          (err, stdout, stderr) => {
-            if (err) return reject(err);
-            resolve();
-          }
-        );
-      });
+        // Convert DOCX to PDF
+        await new Promise((resolve, reject) => {
+          exec(
+            `${sofficeCmd} --headless --convert-to pdf "${docxTempPath}" --outdir "${tempDir}"`,
+            (err, stdout, stderr) => {
+              if (err) return reject(err);
+              resolve();
+            }
+          );
+        });
 
-      const pdfPath = `/generated-docs/${pdfFilename}`;
+        // Read the generated PDF
+        const pdfTempPath = path.join(tempDir, pdfFilename);
+        if (fs.existsSync(pdfTempPath)) {
+          const pdfBuffer = fs.readFileSync(pdfTempPath);
+          
+          // Upload PDF to Firebase
+          const pdfStorageRef = ref(storage, `organizations/${organization.id}/${pdfFilename}`);
+          await uploadBytes(pdfStorageRef, pdfBuffer);
+          firebasePdfUrl = await getDownloadURL(pdfStorageRef);
+          
+          // Update the organization with the PDF URL
+          await OrganizationController.query(
+            'UPDATE organizations SET pdf_firebase_url = $1 WHERE id = $2',
+            [firebasePdfUrl, organization.id]
+          );
+          
+          // Clean up temp files
+          fs.unlinkSync(pdfTempPath);
+        }
+        
+        // Clean up temp DOCX
+        fs.unlinkSync(docxTempPath);
+      } catch (err) {
+        console.error('PDF conversion error:', err);
+      }
 
-      // 5) Cleanup DOCX
-      fs.unlinkSync(docxPath);
-
-      // 6) Return PDF link
+      // 5) Return Firebase URLs
       return res.status(201).json({
         success: true,
-        message: 'Organization created and PDF generated successfully',
+        message: firebasePdfUrl 
+          ? 'Organization created and PDF generated successfully.'
+          : 'Organization created but PDF generation failed. DOCX is available.',
         data: {
-          organization,
+          organization: {
+            ...organization,
+            docx_firebase_url: firebaseDocxUrl,
+            pdf_firebase_url: firebasePdfUrl
+          },
           services: savedServices,
-          pdfPath
+          firebasePdfUrl,
+          firebaseDocxUrl
         }
       });
     } catch (err) {
       console.error('Full error:', err);
-      if (/not recognized as an internal or external command/.test(err.message)) {
+      if (/soffice: command not found|not recognized as an internal or external command/.test(err.message)) {
         return res.status(500).json({
           success: false,
-          message: 'PDF conversion failed: soffice not found. Install LibreOffice and add it to PATH or set SOFFICE_PATH.',
-          error: err.message
+          message: 'PDF conversion failed: LibreOffice not installed or not in PATH',
+          error: err.message,
+          solution: 'To fix this issue, please install LibreOffice on the server and make sure it\'s available in the system PATH or set the SOFFICE_PATH environment variable.'
         });
       }
       return res.status(500).json({

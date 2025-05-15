@@ -5,6 +5,7 @@
     "docxtemplater": "^3.61.2",
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
+    "firebase": "^11.7.3",
     "jsonwebtoken": "^9.0.2",
     "nodemon": "^3.1.9",
     "pg": "^8.14.1",

@@ -29,9 +29,13 @@ const organizationService = {
   createOrganization: async (organizationData) => {
     try {
       const response = await axiosInstance.post('/', organizationData);
-      // API returns { success, message, data: { organization, services, documentPath } }
-      // we return just the inner data object
-      return response.data.data;
+      // API returns { success, message, data: { organization, services, documentPath, firebasePdfUrl, firebaseDocxUrl } }
+      // we return just the inner data object with Firebase URLs
+      return {
+        ...response.data.data,
+        firebasePdfUrl: response.data.data?.organization?.pdf_firebase_url || response.data.data?.firebasePdfUrl,
+        firebaseDocxUrl: response.data.data?.organization?.docx_firebase_url || response.data.data?.firebaseDocxUrl
+      };
     } catch (error) {
       // normalize error payload
       const err = error.response?.data || error.message;

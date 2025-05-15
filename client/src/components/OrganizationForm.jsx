@@ -15,6 +15,9 @@ const OrganizationForm = () => {
     requirements: ''
   }]);
   const [pdfUrl, setPdfUrl] = useState('');  // full URL to PDF
+  const [docxUrl, setDocxUrl] = useState(''); // fallback for when PDF generation fails
+  const [firebasePdfUrl, setFirebasePdfUrl] = useState(''); // Firebase PDF URL
+  const [firebaseDocxUrl, setFirebaseDocxUrl] = useState(''); // Firebase DOCX URL
 
   const [formData, setFormData] = useState({
     province: '',
@@ -132,34 +135,62 @@ const OrganizationForm = () => {
         services
       };
 
-      // Call API
-      const { pdfPath } = await organizationService.createOrganization(organizationData);
+      try {
+        // Call API
+        const response = await organizationService.createOrganization(organizationData);
+        
+        // Set Firebase URLs if available
+        if (response.firebasePdfUrl) {
+          setFirebasePdfUrl(response.firebasePdfUrl);
+          // Open the PDF in a new tab
+          window.open(response.firebasePdfUrl, '_blank');
+          toast.success('Registration submitted! Your PDF is opening now.', { autoClose: 5000 });
+        } else if (response.firebaseDocxUrl) {
+          setFirebaseDocxUrl(response.firebaseDocxUrl);
+          toast.success('Registration submitted! Your DOCX file is available for download.', { autoClose: 5000 });
+        } 
+        // Fallback to local server paths if Firebase URLs are not available
+        else if (response.pdfPath) {
+          const fullPdfUrl = `${BACKEND_URL}${response.pdfPath}`;
+          setPdfUrl(fullPdfUrl);
+          window.open(fullPdfUrl, '_blank');
+          toast.success('Registration submitted! Your PDF is opening now.', { autoClose: 5000 });
+        } else if (response.docxPath) {
+          // Fallback to DOCX if PDF generation failed
+          const fullDocxUrl = `${BACKEND_URL}${response.docxPath}`;
+          setDocxUrl(fullDocxUrl);
+          toast.success('Registration submitted! Your DOCX file is available for download.', { autoClose: 5000 });
+        }
 
-      // Build full URL and open
-      const fullPdfUrl = `${BACKEND_URL}${pdfPath}`;
-      window.open(fullPdfUrl, '_blank');
-      setPdfUrl(fullPdfUrl);
-
-      toast.success('Registration submitted! Your PDF is opening now.', { autoClose: 5000 });
-
-      // Reset form
-      setFormData({
-        province: '',
-        district: '',
-        institutionName: '',
-        websiteUrl: '',
-        personalDetails: { name: '', designation: '', email: '', contactNumber: '' },
-        organizationLogo: null,
-        organizationLogoUrl: '',
-        profileImage: null,
-        profileImageUrl: ''
-      });
-      setServices([{
-        serviceName: '',
-        category: '',
-        description: '',
-        requirements: ''
-      }]);
+        // Reset form
+        setFormData({
+          province: '',
+          district: '',
+          institutionName: '',
+          websiteUrl: '',
+          personalDetails: { name: '', designation: '', email: '', contactNumber: '' },
+          organizationLogo: null,
+          organizationLogoUrl: '',
+          profileImage: null,
+          profileImageUrl: ''
+        });
+        setServices([{
+          serviceName: '',
+          category: '',
+          description: '',
+          requirements: ''
+        }]);
+      } catch (err) {
+        console.error('API error:', err);
+        
+        // Special handling for LibreOffice missing error
+        if (err.error && err.error.includes('soffice: command not found')) {
+          toast.error('Registration submitted, but PDF generation failed. LibreOffice not found on server.', { autoClose: 7000 });
+          toast.info('Your data has been saved. Please contact the administrator about installing LibreOffice.', { autoClose: 7000 });
+        } else {
+          toast.error(err.message || 'Error submitting organization details');
+        }
+      }
     } catch (err) {
       console.error('Submission error:', err);
       toast.error(err.message || 'Error submitting organization details');
@@ -427,17 +458,76 @@ const OrganizationForm = () => {
         </div>
       </form>
 
-      {/* Persistent PDF link */}
-      {pdfUrl && (
-        <div className="mt-6 text-center">
-          <a
-            href={pdfUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline text-blue-600"
-          >
-            📄 Download your registration PDF
-          </a>
+      {/* Persistent document links */}
+      {(firebasePdfUrl || firebaseDocxUrl || pdfUrl || docxUrl) && (
+        <div className="mt-6 p-4 bg-blue-50 rounded-md border border-blue-200">
+          <h3 className="font-medium text-blue-700 mb-2">Your Documents</h3>
+          
+          {firebasePdfUrl && (
+            <a
+              href={firebasePdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center text-blue-600 hover:text-blue-800 mb-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clipRule="evenodd" />
+              </svg>
+              Download Registration PDF (Cloud Storage)
+            </a>
+          )}
+          
+          {firebaseDocxUrl && (
+            <a
+              href={firebaseDocxUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center text-blue-600 hover:text-blue-800 mb-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clipRule="evenodd" />
+              </svg>
+              Download Registration DOCX (Cloud Storage)
+            </a>
+          )}
+          
+          {/* Fallback to local server paths if Firebase URLs are not available */}
+          {!firebasePdfUrl && pdfUrl && (
+            <a
+              href={pdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center text-blue-600 hover:text-blue-800 mb-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clipRule="evenodd" />
+              </svg>
+              Download Registration PDF (Local Server)
+            </a>
+          )}
+          
+          {!firebaseDocxUrl && docxUrl && (
+            <a
+              href={docxUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center text-blue-600 hover:text-blue-800"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clipRule="evenodd" />
+              </svg>
+              Download Registration DOCX (Local Server)
+            </a>
+          )}
+          
+          {!firebasePdfUrl && !firebaseDocxUrl && !pdfUrl && !docxUrl && (
+            <p className="text-amber-600 flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              If you need your registration document, please contact the administrator.
+            </p>
+          )}
         </div>
       )}
     </div>
