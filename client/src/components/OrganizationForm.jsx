@@ -2,22 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { provinces, getDistricts } from '../utils/locationData';
 import organizationService from '../services/organizationService';
 import { toast } from 'react-toastify';
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from '../config/firebase';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL; // e.g. "http://localhost:3000"
 
 const OrganizationForm = () => {
   const [districts, setDistricts] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fileUploading, setFileUploading] = useState({
+    logo: false,
+    profile: false
+  });
   const [services, setServices] = useState([{
     serviceName: '',
     category: '',
     description: '',
     requirements: ''
   }]);
-  const [pdfUrl, setPdfUrl] = useState('');  // full URL to PDF
-  const [docxUrl, setDocxUrl] = useState(''); // fallback for when PDF generation fails
-  const [firebasePdfUrl, setFirebasePdfUrl] = useState(''); // Firebase PDF URL
-  const [firebaseDocxUrl, setFirebaseDocxUrl] = useState(''); // Firebase DOCX URL
+  const [pdfUrl, setPdfUrl] = useState('');
+  const [docxUrl, setDocxUrl] = useState('');
+  const [firebasePdfUrl, setFirebasePdfUrl] = useState('');
+  const [firebaseDocxUrl, setFirebaseDocxUrl] = useState('');
 
   const [formData, setFormData] = useState({
     province: '',
@@ -61,23 +67,47 @@ const OrganizationForm = () => {
     }
   };
 
-  const handleFileChange = (e, type) => {
+  const handleFileChange = async (e, type) => {
     const file = e.target.files[0];
-    setFormData(prev => ({
-      ...prev,
-      [type]: file,
-      [`${type}Url`]: ''
-    }));
-  };
+    if (!file) return;
 
-  const handleImageUrlChange = (e) => {
-    const { name, value } = e.target;
-    const fileType = name === 'organizationLogoUrl' ? 'organizationLogo' : 'profileImage';
-    setFormData(prev => ({
+    // Set fileUploading state for the specific file type
+    setFileUploading(prev => ({
       ...prev,
-      [name]: value,
-      [fileType]: null
+      [type === 'organizationLogo' ? 'logo' : 'profile']: true
     }));
+
+    try {
+      // Create a unique filename
+      const timestamp = new Date().getTime();
+      const fileExtension = file.name.split('.').pop();
+      const fileName = `${type}_${timestamp}.${fileExtension}`;
+      const storageRef = ref(storage, `organizations/images/${fileName}`);
+      
+      // Upload the file to Firebase Storage
+      await uploadBytes(storageRef, file);
+      
+      // Get the download URL
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      // Update form data with the Firebase URL
+      setFormData(prev => ({
+        ...prev,
+        [type]: null,
+        [`${type}Url`]: downloadURL
+      }));
+
+      toast.success(`${type === 'organizationLogo' ? 'Logo' : 'Profile image'} uploaded successfully!`);
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      toast.error(`Failed to upload ${type === 'organizationLogo' ? 'logo' : 'profile image'}.`);
+    } finally {
+      // Clear loading state
+      setFileUploading(prev => ({
+        ...prev,
+        [type === 'organizationLogo' ? 'logo' : 'profile']: false
+      }));
+    }
   };
 
   const handleServiceChange = (index, field, value) => {
@@ -128,10 +158,8 @@ const OrganizationForm = () => {
         institutionName: formData.institutionName,
         websiteUrl: formData.websiteUrl,
         personalDetails: formData.personalDetails,
-        organizationLogo: formData.organizationLogo,
-        organizationLogoUrl: formData.organizationLogoUrl,
-        profileImage: formData.profileImage,
-        profileImageUrl: formData.profileImageUrl,
+        organizationLogoUrl: formData.organizationLogoUrl, // This is now the Firebase URL
+        profileImageUrl: formData.profileImageUrl, // This is now the Firebase URL
         services
       };
 
@@ -333,52 +361,66 @@ const OrganizationForm = () => {
           <div className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <label>Upload Logo</label>
+                <label className="block mb-2">Organization Logo</label>
                 <input
                   type="file"
                   accept="image/*"
                   onChange={e => handleFileChange(e, 'organizationLogo')}
-                  disabled={formData.organizationLogoUrl}
-                  className="w-full"
+                  className="w-full p-2 border rounded"
                 />
-                {formData.organizationLogo && <p>Selected: {formData.organizationLogo.name}</p>}
+                {fileUploading.logo && (
+                  <div className="mt-2 flex items-center text-blue-600">
+                    <svg className="animate-spin -ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Uploading...
+                  </div>
+                )}
+                {formData.organizationLogoUrl && (
+                  <div className="mt-2">
+                    <img 
+                      src={formData.organizationLogoUrl} 
+                      alt="Organization Logo Preview" 
+                      className="h-20 object-contain border rounded p-1"
+                      onError={(e) => {
+                        e.target.onerror = null; 
+                        e.target.src = 'https://via.placeholder.com/150?text=Logo+Preview';
+                      }}
+                    />
+                  </div>
+                )}
               </div>
               <div>
-                <label>Or Logo URL</label>
-                <input
-                  type="url"
-                  name="organizationLogoUrl"
-                  value={formData.organizationLogoUrl}
-                  onChange={handleImageUrlChange}
-                  disabled={formData.organizationLogo}
-                  className="w-full p-3 border rounded"
-                  placeholder="https://example.com/logo.png"
-                />
-              </div>
-            </div>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label>Upload Photo</label>
+                <label className="block mb-2">Profile Image</label>
                 <input
                   type="file"
                   accept="image/*"
                   onChange={e => handleFileChange(e, 'profileImage')}
-                  disabled={formData.profileImageUrl}
-                  className="w-full"
+                  className="w-full p-2 border rounded"
                 />
-                {formData.profileImage && <p>Selected: {formData.profileImage.name}</p>}
-              </div>
-              <div>
-                <label>Or Photo URL</label>
-                <input
-                  type="url"
-                  name="profileImageUrl"
-                  value={formData.profileImageUrl}
-                  onChange={handleImageUrlChange}
-                  disabled={formData.profileImage}
-                  className="w-full p-3 border rounded"
-                  placeholder="https://example.com/photo.jpg"
-                />
+                {fileUploading.profile && (
+                  <div className="mt-2 flex items-center text-blue-600">
+                    <svg className="animate-spin -ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Uploading...
+                  </div>
+                )}
+                {formData.profileImageUrl && (
+                  <div className="mt-2">
+                    <img 
+                      src={formData.profileImageUrl} 
+                      alt="Profile Image Preview" 
+                      className="h-20 object-contain border rounded p-1"
+                      onError={(e) => {
+                        e.target.onerror = null; 
+                        e.target.src = 'https://via.placeholder.com/150?text=Profile+Preview';
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -448,9 +490,9 @@ const OrganizationForm = () => {
         <div className="pt-6">
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || fileUploading.logo || fileUploading.profile}
             className={`w-full py-3 rounded text-white ${
-              isSubmitting ? 'bg-gray-400' : 'bg-blue-600'
+              isSubmitting || fileUploading.logo || fileUploading.profile ? 'bg-gray-400' : 'bg-blue-600'
             }`}
           >
             {isSubmitting ? 'Processing…' : 'Save Registration'}

@@ -38,10 +38,8 @@ class OrganizationController {
         institutionName,
         websiteUrl,
         personalDetails,
-        organizationLogo,
-        organizationLogoUrl,
-        profileImage,
-        profileImageUrl,
+        organizationLogoUrl,  // This is now a Firebase Storage URL
+        profileImageUrl,      // This is now a Firebase Storage URL
         services,
         isSubmitted = false
       } = req.body;
@@ -69,8 +67,8 @@ class OrganizationController {
       const orgParams = [
         province, district, institutionName, websiteUrl,
         name, designation, email, contactNumber,
-        organizationLogo || organizationLogoUrl,
-        profileImage || profileImageUrl,
+        organizationLogoUrl, // Store the Firebase URL directly
+        profileImageUrl,     // Store the Firebase URL directly
         userId, isSubmitted
       ];
       const orgRes = await OrganizationController.query(orgSql, orgParams);
@@ -122,6 +120,8 @@ class OrganizationController {
         email,
         contactNumber,
         status: organization.status,
+        organizationLogo: organizationLogoUrl || '',
+        profileImage: profileImageUrl || '',
         services: savedServices.map(s => ({
           serviceName: s.service_name,
           category: s.category,
