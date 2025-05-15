@@ -272,7 +272,7 @@ const OrganizationForm = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto my-6 px-4 sm:px-6">
+    <div className="max-w-7xl mx-auto my-6 px-4 sm:px-6">
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-lg p-6 shadow-lg">
         <div className="flex items-center mb-3">
           <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow">
