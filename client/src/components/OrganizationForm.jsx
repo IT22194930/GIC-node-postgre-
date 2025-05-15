@@ -24,6 +24,10 @@ const OrganizationForm = () => {
     organizationLogo: null, organizationLogoUrl: '',
     profileImage: null, profileImageUrl: ''
   });
+  const [imagePreview, setImagePreview] = useState({
+    organizationLogo: null,
+    profileImage: null
+  });
 
   useEffect(() => {
     if (formData.province) {
@@ -66,41 +70,79 @@ const OrganizationForm = () => {
     }
   };
 
-  const handleFileChange = async (e, type) => {
+  const handleFileChange = (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    setFileUploading(prev => ({
+    
+    setFormData(prev => ({
       ...prev,
-      [type === 'organizationLogo' ? 'logo' : 'profile']: true
+      [type]: file
     }));
+    
+    const previewUrl = URL.createObjectURL(file);
+    setImagePreview(prev => ({
+      ...prev,
+      [type]: previewUrl
+    }));
+  };
 
-    try {
+  const uploadImagesToFirebase = async () => {
+    const uploads = [];
+    const newFormData = { ...formData };
+    
+    if (formData.organizationLogo) {
+      setFileUploading(prev => ({ ...prev, logo: true }));
       const timestamp = new Date().getTime();
-      const fileExtension = file.name.split('.').pop();
-      const fileName = `${type}_${timestamp}.${fileExtension}`;
+      const fileExtension = formData.organizationLogo.name.split('.').pop();
+      const fileName = `organizationLogo_${timestamp}.${fileExtension}`;
       const storageRef = ref(storage, `organizations/images/${fileName}`);
       
-      await uploadBytes(storageRef, file);
-      
-      const downloadURL = await getDownloadURL(storageRef);
-      
-      setFormData(prev => ({
-        ...prev,
-        [type]: null,
-        [`${type}Url`]: downloadURL
-      }));
-
-      toast.success(`${type === 'organizationLogo' ? 'Logo' : 'Profile image'} uploaded successfully!`);
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      toast.error(`Failed to upload ${type === 'organizationLogo' ? 'logo' : 'profile image'}.`);
-    } finally {
-      setFileUploading(prev => ({
-        ...prev,
-        [type === 'organizationLogo' ? 'logo' : 'profile']: false
-      }));
+      const logoUpload = uploadBytes(storageRef, formData.organizationLogo)
+        .then(() => getDownloadURL(storageRef))
+        .then(downloadURL => {
+          newFormData.organizationLogoUrl = downloadURL;
+          return true;
+        })
+        .catch(error => {
+          console.error("Error uploading organization logo:", error);
+          toast.error("Failed to upload organization logo");
+          return false;
+        });
+        
+      uploads.push(logoUpload);
     }
+    
+    if (formData.profileImage) {
+      setFileUploading(prev => ({ ...prev, profile: true }));
+      const timestamp = new Date().getTime();
+      const fileExtension = formData.profileImage.name.split('.').pop();
+      const fileName = `profileImage_${timestamp}.${fileExtension}`;
+      const storageRef = ref(storage, `organizations/images/${fileName}`);
+      
+      const profileUpload = uploadBytes(storageRef, formData.profileImage)
+        .then(() => getDownloadURL(storageRef))
+        .then(downloadURL => {
+          newFormData.profileImageUrl = downloadURL;
+          return true;
+        })
+        .catch(error => {
+          console.error("Error uploading profile image:", error);
+          toast.error("Failed to upload profile image");
+          return false;
+        });
+        
+      uploads.push(profileUpload);
+    }
+    
+    const results = await Promise.all(uploads);
+    
+    setFileUploading({ logo: false, profile: false });
+    
+    if (results.includes(false)) {
+      return null;
+    }
+    
+    return newFormData;
   };
 
   const handleServiceChange = (index, field, value) => {
@@ -130,27 +172,42 @@ const OrganizationForm = () => {
     try {
       if (!formData.province || !formData.district || !formData.institutionName) {
         toast.error('Please fill in all required organization details');
+        setIsSubmitting(false);
         return;
       }
       const pd = formData.personalDetails;
       if (!pd.name || !pd.designation || !pd.email || !pd.contactNumber) {
         toast.error('Please fill in all required personal details');
+        setIsSubmitting(false);
         return;
       }
       if (!services[0].serviceName || !services[0].category ||
           !services[0].description || !services[0].requirements) {
         toast.error('Please fill in at least one service');
+        setIsSubmitting(false);
         return;
+      }
+      
+      let updatedFormData = formData;
+      if (formData.organizationLogo || formData.profileImage) {
+        toast.info('Uploading images, please wait...', { autoClose: 3000 });
+        updatedFormData = await uploadImagesToFirebase();
+        
+        if (!updatedFormData) {
+          toast.error('Failed to upload images. Please try again.');
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       const organizationData = {
-        province: formData.province,
-        district: formData.district,
-        institutionName: formData.institutionName,
-        websiteUrl: formData.websiteUrl,
-        personalDetails: formData.personalDetails,
-        organizationLogoUrl: formData.organizationLogoUrl,
-        profileImageUrl: formData.profileImageUrl,
+        province: updatedFormData.province,
+        district: updatedFormData.district,
+        institutionName: updatedFormData.institutionName,
+        websiteUrl: updatedFormData.websiteUrl,
+        personalDetails: updatedFormData.personalDetails,
+        organizationLogoUrl: updatedFormData.organizationLogoUrl,
+        profileImageUrl: updatedFormData.profileImageUrl,
         services
       };
 
@@ -185,6 +242,10 @@ const OrganizationForm = () => {
           organizationLogoUrl: '',
           profileImage: null,
           profileImageUrl: ''
+        });
+        setImagePreview({
+          organizationLogo: null,
+          profileImage: null
         });
         setServices([{
           serviceName: '',
@@ -405,10 +466,10 @@ const OrganizationForm = () => {
                   <span className="text-sm">Uploading...</span>
                 </div>
               )}
-              {formData.organizationLogoUrl && (
+              {imagePreview.organizationLogo && (
                 <div className="mt-2 flex items-center justify-center border rounded p-2 bg-white">
                   <img 
-                    src={formData.organizationLogoUrl} 
+                    src={imagePreview.organizationLogo} 
                     alt="Organization Logo Preview" 
                     className="h-24 object-contain"
                     onError={(e) => {
@@ -436,10 +497,10 @@ const OrganizationForm = () => {
                   <span className="text-sm">Uploading...</span>
                 </div>
               )}
-              {formData.profileImageUrl && (
+              {imagePreview.profileImage && (
                 <div className="mt-2 flex items-center justify-center border rounded p-2 bg-white">
                   <img 
-                    src={formData.profileImageUrl} 
+                    src={imagePreview.profileImage} 
                     alt="Profile Image Preview" 
                     className="h-24 object-contain"
                     onError={(e) => {
