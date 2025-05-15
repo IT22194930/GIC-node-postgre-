@@ -412,7 +412,7 @@ const OrganizationForm = () => {
               </div>
             </div>
             <div>
-              <label className="text-gray-700 font-medium block mb-1">Contact Number * <span className="text-sm text-gray-500">(10 digits)</span></label>
+              <label className="text-gray-700 font-medium block mb-1">Contact Number *</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
