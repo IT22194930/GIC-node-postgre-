@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS organizations (
   profile_image TEXT,
   documentPdf TEXT,
   status VARCHAR(20) DEFAULT 'pending',
+  docx_firebase_url TEXT,
+  pdf_firebase_url TEXT,
   isSubmitted BOOLEAN DEFAULT FALSE,
   user_id INTEGER REFERENCES users(id),
   created_at TIMESTAMP DEFAULT NOW(),

@@ -6,8 +6,8 @@ const API_URL = `${import.meta.env.VITE_API_URL}/api/organizations`;
 const axiosInstance = axios.create({
   baseURL: API_URL,
   headers: {
-    'Content-Type': 'application/json'
-  }
+    'Content-Type': 'application/json',
+  },
 });
 
 // Add auth token to requests
@@ -29,9 +29,17 @@ const organizationService = {
   createOrganization: async (organizationData) => {
     try {
       const response = await axiosInstance.post('/', organizationData);
-      return response.data;
+      // API returns { success, message, data: { organization, services, documentPath, firebasePdfUrl, firebaseDocxUrl } }
+      // we return just the inner data object with Firebase URLs
+      return {
+        ...response.data.data,
+        firebasePdfUrl: response.data.data?.organization?.pdf_firebase_url || response.data.data?.firebasePdfUrl,
+        firebaseDocxUrl: response.data.data?.organization?.docx_firebase_url || response.data.data?.firebaseDocxUrl
+      };
     } catch (error) {
-      throw error.response?.data || error.message;
+      // normalize error payload
+      const err = error.response?.data || error.message;
+      throw err;
     }
   },
 
@@ -94,7 +102,7 @@ const organizationService = {
     } catch (error) {
       throw error.response?.data || error.message;
     }
-  }
+  },
 };
 
 export default organizationService;

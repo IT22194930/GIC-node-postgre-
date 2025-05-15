@@ -1,26 +1,33 @@
+const fs = require('fs');
+const path = require('path');
+const { exec } = require('child_process');
+const PizZip = require('pizzip');
+const Docxtemplater = require('docxtemplater');
 const connection = require('../../config/database');
+const { storage } = require('../../config/firebase');
+const { ref, uploadBytes, getDownloadURL } = require('firebase/storage');
+const os = require('os');
 
 class OrganizationController {
-  static async query(query, params) {
+  static async query(sql, params) {
     try {
-      const result = await connection.query(query, params);
-      return result;
-    } catch (error) {
-      console.error('Database query error:', error);
-      throw error;
+      return await connection.query(sql, params);
+    } catch (err) {
+      console.error('Database query error:', err);
+      throw err;
     }
   }
 
   static async findByEmail(email) {
-    const query = 'SELECT * FROM organizations WHERE email = $1';
-    const result = await this.query(query, [email]);
-    return result.rows;
+    const sql = 'SELECT * FROM organizations WHERE email = $1';
+    const res = await this.query(sql, [email]);
+    return res.rows;
   }
 
   static async findById(id) {
-    const query = 'SELECT * FROM organizations WHERE id = $1';
-    const result = await this.query(query, [id]);
-    return result.rows[0];
+    const sql = 'SELECT * FROM organizations WHERE id = $1';
+    const res = await this.query(sql, [id]);
+    return res.rows[0];
   }
 
   static async createOrganization(req, res) {
@@ -31,53 +38,79 @@ class OrganizationController {
         institutionName,
         websiteUrl,
         personalDetails,
-        organizationLogo,
-        organizationLogoUrl,
-        profileImage,
-        profileImageUrl,
-        documentPdf,
+        organizationLogoUrl,  // This is now a Firebase Storage URL
+        profileImageUrl,      // This is now a Firebase Storage URL
         services,
         isSubmitted = false
       } = req.body;
-
-      // Get user ID from authentication middleware
       const userId = req.user.id;
+      const { name, designation, email, contactNumber } = personalDetails || {};
 
-      // Get personal details directly from the object
-      const { name, designation, email, contactNumber } = personalDetails;
-
-      // Validate required fields
       if (!province || !district || !institutionName || !name || !designation || !email || !contactNumber) {
-        return res.status(400).json({
-          success: false,
-          message: 'Missing required fields'
-        });
+        return res.status(400).json({ success: false, message: 'Missing required fields' });
       }
 
-      // Create organization
-      const organizationQuery = `
+      // 1) Insert organization
+      const orgSql = `
         INSERT INTO organizations (
-          province,
-          district,
-          institution_name,
-          website_url,
-          name,
-          designation,
-          email,
-          contact_number,
-          organization_logo,
-          profile_image,
-          documentPdf,
-          status,
-          user_id,
-          isSubmitted,
-          created_at,
-          updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
-        RETURNING *
+          province, district, institution_name, website_url,
+          name, designation, email, contact_number,
+          organization_logo, profile_image, status,
+          user_id, isSubmitted, created_at, updated_at
+        ) VALUES (
+          $1, $2, $3, $4,
+          $5, $6, $7, $8,
+          $9, $10, 'pending',
+          $11, $12, NOW(), NOW()
+        ) RETURNING *
       `;
+      const orgParams = [
+        province, district, institutionName, websiteUrl,
+        name, designation, email, contactNumber,
+        organizationLogoUrl, // Store the Firebase URL directly
+        profileImageUrl,     // Store the Firebase URL directly
+        userId, isSubmitted
+      ];
+      const orgRes = await OrganizationController.query(orgSql, orgParams);
+      const organization = orgRes.rows[0];
 
-      const organizationParams = [
+      // 2) Insert services
+      let parsedServices = [];
+      try {
+        parsedServices = typeof services === 'string'
+          ? JSON.parse(services)
+          : (services || []);
+      } catch {
+        return res.status(400).json({ success: false, message: 'Invalid services format' });
+      }
+
+      const svcSql = `
+        INSERT INTO services (
+          organization_id, service_name, category,
+          description, requirements, created_at, updated_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, NOW(), NOW()
+        ) RETURNING *
+      `;
+      const createdSvcs = await Promise.all(
+        parsedServices.map(svc =>
+          OrganizationController.query(svcSql, [
+            organization.id,
+            svc.serviceName,
+            svc.category,
+            svc.description,
+            svc.requirements
+          ])
+        )
+      );
+      const savedServices = createdSvcs.map(r => r.rows[0]);
+
+      // 3) Generate DOCX
+      const templatePath = path.resolve(__dirname, '../../templates/organization-template.docx');
+      const templateBinary = fs.readFileSync(templatePath, 'binary');
+      const zip = new PizZip(templateBinary);
+      const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+      doc.render({
         province,
         district,
         institutionName,
@@ -86,67 +119,123 @@ class OrganizationController {
         designation,
         email,
         contactNumber,
-        organizationLogo || organizationLogoUrl,
-        profileImage || profileImageUrl,
-        documentPdf || null,
-        'pending',
-        userId,
-        isSubmitted
-      ];
+        status: organization.status,
+        organizationLogo: organizationLogoUrl || '',
+        profileImage: profileImageUrl || '',
+        services: savedServices.map(s => ({
+          serviceName: s.service_name,
+          category: s.category,
+          description: s.description,
+          requirements: s.requirements
+        }))
+      });
+      const docxBuffer = doc.getZip().generate({ type: 'nodebuffer' });
 
-      const organizationResult = await OrganizationController.query(organizationQuery, organizationParams);
-      const organization = organizationResult.rows[0];
+      // Variables for Firebase URLs
+      let firebaseDocxUrl;
+      let firebasePdfUrl;
 
-      // Create services
-      let parsedServices;
+      // Upload DOCX to Firebase
       try {
-        parsedServices = typeof services === 'string' ? JSON.parse(services) : services;
-      } catch (error) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid services data format'
-        });
+        const docxFilename = `organization-${organization.id}.docx`;
+        const docxStorageRef = ref(storage, `organizations/${organization.id}/${docxFilename}`);
+        
+        await uploadBytes(docxStorageRef, docxBuffer);
+        firebaseDocxUrl = await getDownloadURL(docxStorageRef);
+        
+        // Update the organization with the DOCX URL
+        await OrganizationController.query(
+          'UPDATE organizations SET docx_firebase_url = $1 WHERE id = $2',
+          [firebaseDocxUrl, organization.id]
+        );
+      } catch (err) {
+        console.error('Error uploading DOCX to Firebase:', err);
       }
 
-      const serviceQuery = `
-        INSERT INTO services (
-          organization_id,
-          service_name,
-          category,
-          description,
-          requirements,
-          created_at,
-          updated_at
-        ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-        RETURNING *
-      `;
+      // 4) Convert DOCX → PDF
+      try {
+        // Create temporary files for conversion
+        const tempDir = os.tmpdir();
+        const docxTempPath = path.join(tempDir, `organization-${organization.id}.docx`);
+        const pdfFilename = `organization-${organization.id}.pdf`;
+        
+        // Write the DOCX buffer to temp file
+        fs.writeFileSync(docxTempPath, docxBuffer);
+        
+        // Allow override via environment var or default based on platform
+        const sofficeCmd = process.env.SOFFICE_PATH
+          || (process.platform === 'win32'
+              ? `"C:\\Program Files\\LibreOffice\\program\\soffice.exe"`
+              : 'soffice');
 
-      const createdServices = await Promise.all(
-        parsedServices.map(service =>
-          OrganizationController.query(serviceQuery, [
-            organization.id,
-            service.serviceName,
-            service.category,
-            service.description,
-            service.requirements
-          ])
-        )
-      );
+        // Convert DOCX to PDF
+        await new Promise((resolve, reject) => {
+          exec(
+            `${sofficeCmd} --headless --convert-to pdf "${docxTempPath}" --outdir "${tempDir}"`,
+            (err, stdout, stderr) => {
+              if (err) return reject(err);
+              resolve();
+            }
+          );
+        });
 
-      res.status(201).json({
+        // Read the generated PDF
+        const pdfTempPath = path.join(tempDir, pdfFilename);
+        if (fs.existsSync(pdfTempPath)) {
+          const pdfBuffer = fs.readFileSync(pdfTempPath);
+          
+          // Upload PDF to Firebase
+          const pdfStorageRef = ref(storage, `organizations/${organization.id}/${pdfFilename}`);
+          await uploadBytes(pdfStorageRef, pdfBuffer);
+          firebasePdfUrl = await getDownloadURL(pdfStorageRef);
+          
+          // Update the organization with the PDF URL
+          await OrganizationController.query(
+            'UPDATE organizations SET pdf_firebase_url = $1 WHERE id = $2',
+            [firebasePdfUrl, organization.id]
+          );
+          
+          // Clean up temp files
+          fs.unlinkSync(pdfTempPath);
+        }
+        
+        // Clean up temp DOCX
+        fs.unlinkSync(docxTempPath);
+      } catch (err) {
+        console.error('PDF conversion error:', err);
+      }
+
+      // 5) Return Firebase URLs
+      return res.status(201).json({
         success: true,
-        message: 'Organization created successfully',
+        message: firebasePdfUrl 
+          ? 'Organization created and PDF generated successfully.'
+          : 'Organization created but PDF generation failed. DOCX is available.',
         data: {
-          organization,
-          services: createdServices.map(result => result.rows[0])
+          organization: {
+            ...organization,
+            docx_firebase_url: firebaseDocxUrl,
+            pdf_firebase_url: firebasePdfUrl
+          },
+          services: savedServices,
+          firebasePdfUrl,
+          firebaseDocxUrl
         }
       });
-    } catch (error) {
-      console.error('Full error:', error);
-      res.status(500).json({
+    } catch (err) {
+      console.error('Full error:', err);
+      if (/soffice: command not found|not recognized as an internal or external command/.test(err.message)) {
+        return res.status(500).json({
+          success: false,
+          message: 'PDF conversion failed: LibreOffice not installed or not in PATH',
+          error: err.message,
+          solution: 'To fix this issue, please install LibreOffice on the server and make sure it\'s available in the system PATH or set the SOFFICE_PATH environment variable.'
+        });
+      }
+      return res.status(500).json({
         success: false,
         message: 'Error creating organization',
-        error: error.message
+        error: err.message
       });
     }
   }
@@ -155,37 +244,26 @@ class OrganizationController {
     try {
       const { id } = req.params;
       const { status } = req.body;
-
       if (!['pending', 'approved', 'rejected'].includes(status)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid status value'
-        });
+        return res.status(400).json({ success: false, message: 'Invalid status value' });
       }
-
-      const query = `
+      const sql = `
         UPDATE organizations 
         SET status = $1, updated_at = NOW() 
         WHERE id = $2 
         RETURNING *
       `;
-
-      const result = await OrganizationController.query(query, [status, id]);
-      
+      const result = await OrganizationController.query(sql, [status, id]);
       if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'Organization not found'
-        });
+        return res.status(404).json({ success: false, message: 'Organization not found' });
       }
-
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
         message: 'Organization status updated successfully',
         data: result.rows[0]
       });
     } catch (error) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error updating organization status',
         error: error.message
@@ -196,38 +274,28 @@ class OrganizationController {
   static async getOrganizations(req, res) {
     try {
       const { status } = req.query;
-      let query = `
-        SELECT 
-          o.*,
-          json_agg(
-            json_build_object(
-              'id', s.id,
-              'serviceName', s.service_name,
-              'category', s.category,
-              'description', s.description,
-              'requirements', s.requirements
-            )
-          ) as services
+      let sql = `
+        SELECT o.*,
+          json_agg(json_build_object(
+            'id', s.id,
+            'serviceName', s.service_name,
+            'category', s.category,
+            'description', s.description,
+            'requirements', s.requirements
+          )) AS services
         FROM organizations o
         LEFT JOIN services s ON o.id = s.organization_id
       `;
-
       const params = [];
       if (status) {
-        query += ` WHERE o.status = $1`;
+        sql += ` WHERE o.status = $1`;
         params.push(status);
       }
-
-      query += ` GROUP BY o.id ORDER BY o.created_at DESC`;
-
-      const result = await OrganizationController.query(query, params);
-
-      res.status(200).json({
-        success: true,
-        data: result.rows
-      });
+      sql += ` GROUP BY o.id ORDER BY o.created_at DESC`;
+      const result = await OrganizationController.query(sql, params);
+      return res.status(200).json({ success: true, data: result.rows });
     } catch (error) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error fetching organizations',
         error: error.message
@@ -238,40 +306,27 @@ class OrganizationController {
   static async getOrganizationById(req, res) {
     try {
       const { id } = req.params;
-
-      const query = `
-        SELECT 
-          o.*,
-          json_agg(
-            json_build_object(
-              'id', s.id,
-              'serviceName', s.service_name,
-              'category', s.category,
-              'description', s.description,
-              'requirements', s.requirements
-            )
-          ) as services
+      const sql = `
+        SELECT o.*,
+          json_agg(json_build_object(
+            'id', s.id,
+            'serviceName', s.service_name,
+            'category', s.category,
+            'description', s.description,
+            'requirements', s.requirements
+          )) AS services
         FROM organizations o
         LEFT JOIN services s ON o.id = s.organization_id
         WHERE o.id = $1
         GROUP BY o.id
       `;
-
-      const result = await OrganizationController.query(query, [id]);
-
+      const result = await OrganizationController.query(sql, [id]);
       if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'Organization not found'
-        });
+        return res.status(404).json({ success: false, message: 'Organization not found' });
       }
-
-      res.status(200).json({
-        success: true,
-        data: result.rows[0]
-      });
+      return res.status(200).json({ success: true, data: result.rows[0] });
     } catch (error) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error fetching organization',
         error: error.message
@@ -281,35 +336,24 @@ class OrganizationController {
 
   static async getUserOrganizations(req, res) {
     try {
-      const userId = req.user.id; // Get user ID from authentication middleware
-
-      // Check if the user_id column exists in the organizations table
-      try {
-        const checkColumnQuery = `
-          SELECT column_name 
-          FROM information_schema.columns 
-          WHERE table_name = 'organizations' 
-          AND column_name = 'user_id';
-        `;
-        const checkResult = await OrganizationController.query(checkColumnQuery, []);
-        
-        if (checkResult.rows.length === 0) {
-          // Add user_id column if it doesn't exist
-          const addColumnQuery = `
-            ALTER TABLE organizations
-            ADD COLUMN user_id INTEGER REFERENCES users(id);
-          `;
-          await OrganizationController.query(addColumnQuery, []);
-          console.log('Added user_id column to organizations table');
-        }
-      } catch (err) {
-        console.error('Error checking/adding user_id column:', err);
+      const userId = req.user.id;
+      // Ensure user_id column exists
+      const colCheck = `
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'organizations'
+          AND column_name = 'user_id'
+      `;
+      const colRes = await OrganizationController.query(colCheck, []);
+      if (colRes.rows.length === 0) {
+        await OrganizationController.query(`
+          ALTER TABLE organizations
+          ADD COLUMN user_id INTEGER REFERENCES users(id)
+        `, []);
       }
 
-      // Now proceed with the original query
-      const query = `
-        SELECT 
-          o.*,
+      const sql = `
+        SELECT o.*,
           json_agg(
             CASE WHEN s.id IS NOT NULL THEN
               json_build_object(
@@ -319,24 +363,19 @@ class OrganizationController {
                 'description', s.description,
                 'requirements', s.requirements
               )
-            ELSE NULL END
-          ) FILTER (WHERE s.id IS NOT NULL) as services
+            END
+          ) FILTER (WHERE s.id IS NOT NULL) AS services
         FROM organizations o
         LEFT JOIN services s ON o.id = s.organization_id
         WHERE o.user_id = $1
         GROUP BY o.id
         ORDER BY o.created_at DESC
       `;
-
-      const result = await OrganizationController.query(query, [userId]);
-
-      res.status(200).json({
-        success: true,
-        data: result.rows
-      });
+      const result = await OrganizationController.query(sql, [userId]);
+      return res.status(200).json({ success: true, data: result.rows });
     } catch (error) {
       console.error('Error fetching user organizations:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error fetching organizations',
         error: error.message
@@ -349,33 +388,17 @@ class OrganizationController {
       const { id } = req.params;
       const userId = req.user.id;
 
-      // First check if organization exists and belongs to the user
-      const checkQuery = 'SELECT * FROM organizations WHERE id = $1';
-      const checkResult = await OrganizationController.query(checkQuery, [id]);
-
-      if (checkResult.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'Organization not found'
-        });
+      const checkSql = 'SELECT * FROM organizations WHERE id = $1';
+      const checkRes = await OrganizationController.query(checkSql, [id]);
+      if (checkRes.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Organization not found' });
       }
-
-      const organization = checkResult.rows[0];
-
-      // Check if the organization belongs to the user
-      if (organization.user_id !== userId) {
-        return res.status(403).json({
-          success: false,
-          message: 'You do not have permission to update this organization'
-        });
+      const org = checkRes.rows[0];
+      if (org.user_id !== userId) {
+        return res.status(403).json({ success: false, message: 'Permission denied' });
       }
-
-      // Check if the organization is in pending status
-      if (organization.status !== 'pending') {
-        return res.status(400).json({
-          success: false,
-          message: 'Only organizations with pending status can be updated'
-        });
+      if (org.status !== 'pending') {
+        return res.status(400).json({ success: false, message: 'Only pending organizations can be updated' });
       }
 
       const {
@@ -392,39 +415,31 @@ class OrganizationController {
         services,
         isSubmitted
       } = req.body;
+      const { name, designation, email, contactNumber } = personalDetails || {};
 
-      // Get personal details directly from the object
-      const { name, designation, email, contactNumber } = personalDetails;
-
-      // Validate required fields
       if (!province || !district || !institutionName || !name || !designation || !email || !contactNumber) {
-        return res.status(400).json({
-          success: false,
-          message: 'Missing required fields'
-        });
+        return res.status(400).json({ success: false, message: 'Missing required fields' });
       }
 
-      // Update organization
-      const updateQuery = `
+      const updSql = `
         UPDATE organizations SET
-          province = $1,
-          district = $2,
-          institution_name = $3,
-          website_url = $4,
-          name = $5,
-          designation = $6,
-          email = $7,
-          contact_number = $8,
+          province        = $1,
+          district        = $2,
+          institution_name= $3,
+          website_url     = $4,
+          name            = $5,
+          designation     = $6,
+          email           = $7,
+          contact_number  = $8,
           organization_logo = $9,
-          profile_image = $10,
-          documentPdf = $11,
-          isSubmitted = $12,
-          updated_at = NOW()
+          profile_image   = $10,
+          documentPdf     = $11,
+          isSubmitted     = $12,
+          updated_at      = NOW()
         WHERE id = $13
         RETURNING *
       `;
-
-      const updateParams = [
+      const updParams = [
         province,
         district,
         institutionName,
@@ -433,70 +448,40 @@ class OrganizationController {
         designation,
         email,
         contactNumber,
-        organizationLogo || organizationLogoUrl || organization.organization_logo,
-        profileImage || profileImageUrl || organization.profile_image,
-        documentPdf !== undefined ? documentPdf : organization.documentPdf,
-        isSubmitted !== undefined ? isSubmitted : organization.isSubmitted,
+        organizationLogo || organizationLogoUrl || org.organization_logo,
+        profileImage || profileImageUrl || org.profile_image,
+        documentPdf !== undefined ? documentPdf : org.documentPdf,
+        isSubmitted !== undefined ? isSubmitted : org.isSubmitted,
         id
       ];
+      const updRes = await OrganizationController.query(updSql, updParams);
+      const updatedOrg = updRes.rows[0];
 
-      const updateResult = await OrganizationController.query(updateQuery, updateParams);
-      const updatedOrg = updateResult.rows[0];
-
-      // Parse and validate services
-      let parsedServices;
+      // Replace services
+      let parsedSvcs = [];
       try {
-        parsedServices = typeof services === 'string' ? JSON.parse(services) : services;
-      } catch (error) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid services data format'
-        });
+        parsedSvcs = typeof services === 'string' ? JSON.parse(services) : (services || []);
+      } catch {
+        return res.status(400).json({ success: false, message: 'Invalid services format' });
       }
-
-      // Delete existing services
-      await OrganizationController.query(
-        'DELETE FROM services WHERE organization_id = $1',
-        [id]
-      );
-
-      // Create new services
-      const serviceQuery = `
-        INSERT INTO services (
-          organization_id,
-          service_name,
-          category,
-          description,
-          requirements,
-          created_at,
-          updated_at
-        ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-        RETURNING *
-      `;
-
-      const createdServices = await Promise.all(
-        parsedServices.map(service =>
-          OrganizationController.query(serviceQuery, [
-            id,
-            service.serviceName,
-            service.category,
-            service.description,
-            service.requirements
+      await OrganizationController.query('DELETE FROM services WHERE organization_id = $1', [id]);
+      const newSvcs = await Promise.all(
+        parsedSvcs.map(s =>
+          OrganizationController.query(svcSql, [
+            id, s.serviceName, s.category, s.description, s.requirements
           ])
         )
       );
+      const savedNewSvcs = newSvcs.map(r => r.rows[0]);
 
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
         message: 'Organization updated successfully',
-        data: {
-          organization: updatedOrg,
-          services: createdServices.map(result => result.rows[0])
-        }
+        data: { organization: updatedOrg, services: savedNewSvcs }
       });
     } catch (error) {
       console.error('Error updating organization:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error updating organization',
         error: error.message
@@ -507,37 +492,21 @@ class OrganizationController {
   static async deleteOrganization(req, res) {
     try {
       const { id } = req.params;
-
-      // First delete related services
-      const deleteServicesQuery = `
-        DELETE FROM services
-        WHERE organization_id = $1
-        RETURNING *
-      `;
-      await OrganizationController.query(deleteServicesQuery, [id]);
-
-      // Then delete the organization
-      const deleteOrgQuery = `
-        DELETE FROM organizations
-        WHERE id = $1
-        RETURNING *
-      `;
-      const result = await OrganizationController.query(deleteOrgQuery, [id]);
-      
-      if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'Organization not found'
-        });
+      await OrganizationController.query('DELETE FROM services WHERE organization_id = $1', [id]);
+      const delRes = await OrganizationController.query(
+        'DELETE FROM organizations WHERE id = $1 RETURNING *',
+        [id]
+      );
+      if (delRes.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Organization not found' });
       }
-
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
         message: 'Organization deleted successfully',
-        data: result.rows[0]
+        data: delRes.rows[0]
       });
     } catch (error) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error deleting organization',
         error: error.message
