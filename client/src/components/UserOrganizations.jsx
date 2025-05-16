@@ -238,7 +238,7 @@ const UserOrganizations = () => {
             <div className="border-t pt-3 mt-3 flex justify-between">
               <div>
                 <Link
-                  to={`/organizations/${org.id}/details`}
+                  to={org.issubmitted === false ? `/pending-organizations/${org.id}/details` : `/organizations/${org.id}/details`}
                   className="text-blue-600 hover:text-blue-800 mr-4"
                 >
                   View Details
