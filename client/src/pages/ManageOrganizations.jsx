@@ -41,7 +41,9 @@ const ManageOrganizations = () => {
   const fetchOrganizations = async () => {
     try {
       const response = await organizationService.getAllOrganizations(statusFilter);
-      setOrganizations(response.data);
+      // Filter to only include organizations where issubmitted is true
+      const submittedOrgs = response.data.filter(org => org.issubmitted === true);
+      setOrganizations(submittedOrgs);
       setError(null);
     } catch (err) {
       setError(err.message || 'Failed to fetch organizations');
@@ -56,10 +58,15 @@ const ManageOrganizations = () => {
       const approvedResponse = await organizationService.getAllOrganizations("approved");
       const rejectedResponse = await organizationService.getAllOrganizations("rejected");
       
+      // Filter to only include organizations where issubmitted is true
+      const pendingSubmitted = pendingResponse.data.filter(org => org.issubmitted === true);
+      const approvedSubmitted = approvedResponse.data.filter(org => org.issubmitted === true);
+      const rejectedSubmitted = rejectedResponse.data.filter(org => org.issubmitted === true);
+      
       setCounts({
-        pending: pendingResponse.data.length,
-        approved: approvedResponse.data.length,
-        rejected: rejectedResponse.data.length
+        pending: pendingSubmitted.length,
+        approved: approvedSubmitted.length,
+        rejected: rejectedSubmitted.length
       });
     } catch (err) {
       console.error('Error fetching organization counts:', err);
