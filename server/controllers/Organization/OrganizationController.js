@@ -465,14 +465,30 @@ class OrganizationController {
         return res.status(400).json({ success: false, message: 'Invalid services format' });
       }
       await OrganizationController.query('DELETE FROM services WHERE organization_id = $1', [id]);
-      const newSvcs = await Promise.all(
-        parsedSvcs.map(s =>
-          OrganizationController.query(svcSql, [
-            id, s.serviceName, s.category, s.description, s.requirements
-          ])
-        )
-      );
-      const savedNewSvcs = newSvcs.map(r => r.rows[0]);
+      
+      let savedNewSvcs = [];
+      
+      // Only insert services if we have valid ones
+      if (parsedSvcs.length > 0 && parsedSvcs[0] && parsedSvcs[0].serviceName) {
+        // Define the SQL for inserting services
+        const svcSql = `
+          INSERT INTO services (
+            organization_id, service_name, category,
+            description, requirements, created_at, updated_at
+          ) VALUES (
+            $1, $2, $3, $4, $5, NOW(), NOW()
+          ) RETURNING *
+        `;
+        
+        const newSvcs = await Promise.all(
+          parsedSvcs.map(s =>
+            OrganizationController.query(svcSql, [
+              id, s.serviceName, s.category, s.description, s.requirements
+            ])
+          )
+        );
+        savedNewSvcs = newSvcs.map(r => r.rows[0]);
+      }
 
       return res.status(200).json({
         success: true,

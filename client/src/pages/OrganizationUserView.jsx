@@ -122,7 +122,12 @@ const OrganizationUserView = ({ isPending = false }) => {
             },
             organizationLogoUrl: organization.organization_logo,
             profileImageUrl: organization.profile_image,
-            services: organization.services || [],
+            // Only include services if they actually exist and have valid data
+            services: organization.services && 
+                     organization.services[0] && 
+                     organization.services[0] !== null && 
+                     organization.services[0].serviceName ? 
+                     organization.services : [],
             isSubmitted: true, // Update the isSubmitted field to true
             status: 'pending' // Set the status to pending
           };
