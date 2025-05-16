@@ -108,7 +108,7 @@ const OrganizationUserView = ({ isPending = false }) => {
         confirmButtonText: 'Yes, submit it!'
       }).then(async (result) => {
         if (result.isConfirmed) {
-          // Format the data for the organizations table
+          // Format the data for organization update
           const organizationData = {
             province: organization.province,
             district: organization.district,
@@ -122,11 +122,13 @@ const OrganizationUserView = ({ isPending = false }) => {
             },
             organizationLogoUrl: organization.organization_logo,
             profileImageUrl: organization.profile_image,
-            services: organization.services || []
+            services: organization.services || [],
+            isSubmitted: true, // Update the isSubmitted field to true
+            status: 'pending' // Set the status to pending
           };
           
-          // Create the organization in the main organizations table
-          await organizationService.createOrganization(organizationData);
+          // Update the organization with isSubmitted = true
+          await organizationService.updateOrganization(id, organizationData);
           
           Swal.fire(
             'Submitted!',
