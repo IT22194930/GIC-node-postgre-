@@ -208,10 +208,25 @@ const OrganizationEdit = ({ isPending = false }) => {
       };
 
       // Submit form
-      await organizationService.updateOrganization(id, organizationData);
+      const response = await organizationService.updateOrganization(id, organizationData);
       
-      toast.success('Organization updated successfully!');
-      navigate(`/organizations/${id}/details`);
+      // Check for document generation status
+      if (response.data?.organization?.pdf_firebase_url) {
+        toast.success('Organization updated and documents regenerated successfully!');
+      } else if (response.data?.organization?.docx_firebase_url) {
+        toast.success('Organization updated with DOCX only. PDF generation failed.');
+      } else {
+        toast.success('Organization updated successfully!');
+      }
+      
+      const organization = organizationService.getOrganizationById(id);
+      if (organization.issubmitted === 'true') {
+        navigate(`/organizations/${id}/details`);
+      }
+      else {
+        navigate(`/pending-organizations/${id}/details`);
+      }
+      
     } catch (error) {
       console.error('Update error:', error);
       toast.error(error.message || 'Error updating organization details');

@@ -489,11 +489,124 @@ class OrganizationController {
         );
         savedNewSvcs = newSvcs.map(r => r.rows[0]);
       }
+      
+      // Generate DOCX
+      const templatePath = path.resolve(__dirname, '../../templates/organization-template.docx');
+      const templateBinary = fs.readFileSync(templatePath, 'binary');
+      const zip = new PizZip(templateBinary);
+      const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+      doc.render({
+        province,
+        district,
+        institutionName,
+        websiteUrl,
+        name,
+        designation,
+        email,
+        contactNumber,
+        status: updatedOrg.status,
+        organizationLogo: organizationLogo || organizationLogoUrl || updatedOrg.organization_logo || '',
+        profileImage: profileImage || profileImageUrl || updatedOrg.profile_image || '',
+        services: savedNewSvcs.map(s => ({
+          serviceName: s.service_name,
+          category: s.category,
+          description: s.description,
+          requirements: s.requirements
+        }))
+      });
+      const docxBuffer = doc.getZip().generate({ type: 'nodebuffer' });
+
+      // Variables for Firebase URLs
+      let firebaseDocxUrl;
+      let firebasePdfUrl;
+
+      // Upload DOCX to Firebase
+      try {
+        const docxFilename = `organization-${id}.docx`;
+        const docxStorageRef = ref(storage, `organizations/${id}/${docxFilename}`);
+        
+        await uploadBytes(docxStorageRef, docxBuffer);
+        firebaseDocxUrl = await getDownloadURL(docxStorageRef);
+        
+        // Update the organization with the DOCX URL
+        await OrganizationController.query(
+          'UPDATE organizations SET docx_firebase_url = $1 WHERE id = $2',
+          [firebaseDocxUrl, id]
+        );
+        
+        // Update the updatedOrg object to include the new URL
+        updatedOrg.docx_firebase_url = firebaseDocxUrl;
+      } catch (err) {
+        console.error('Error uploading DOCX to Firebase:', err);
+      }
+
+      // Convert DOCX → PDF
+      try {
+        // Create temporary files for conversion
+        const tempDir = os.tmpdir();
+        const docxTempPath = path.join(tempDir, `organization-${id}.docx`);
+        const pdfFilename = `organization-${id}.pdf`;
+        
+        // Write the DOCX buffer to temp file
+        fs.writeFileSync(docxTempPath, docxBuffer);
+        
+        // Allow override via environment var or default based on platform
+        const sofficeCmd = process.env.SOFFICE_PATH
+          || (process.platform === 'win32'
+              ? `"C:\\Program Files\\LibreOffice\\program\\soffice.exe"`
+              : 'soffice');
+
+        // Convert DOCX to PDF
+        await new Promise((resolve, reject) => {
+          exec(
+            `${sofficeCmd} --headless --convert-to pdf "${docxTempPath}" --outdir "${tempDir}"`,
+            (err, stdout, stderr) => {
+              if (err) return reject(err);
+              resolve();
+            }
+          );
+        });
+
+        // Read the generated PDF
+        const pdfTempPath = path.join(tempDir, pdfFilename);
+        if (fs.existsSync(pdfTempPath)) {
+          const pdfBuffer = fs.readFileSync(pdfTempPath);
+          
+          // Upload PDF to Firebase
+          const pdfStorageRef = ref(storage, `organizations/${id}/${pdfFilename}`);
+          await uploadBytes(pdfStorageRef, pdfBuffer);
+          firebasePdfUrl = await getDownloadURL(pdfStorageRef);
+          
+          // Update the organization with the PDF URL
+          await OrganizationController.query(
+            'UPDATE organizations SET pdf_firebase_url = $1 WHERE id = $2',
+            [firebasePdfUrl, id]
+          );
+          
+          // Update the updatedOrg object to include the new URL
+          updatedOrg.pdf_firebase_url = firebasePdfUrl;
+          
+          // Clean up temp files
+          fs.unlinkSync(pdfTempPath);
+        }
+        
+        // Clean up temp DOCX
+        fs.unlinkSync(docxTempPath);
+      } catch (err) {
+        console.error('PDF conversion error:', err);
+      }
 
       return res.status(200).json({
         success: true,
-        message: 'Organization updated successfully',
-        data: { organization: updatedOrg, services: savedNewSvcs }
+        message: firebasePdfUrl 
+          ? 'Organization updated and PDF generated successfully.'
+          : 'Organization updated but PDF generation failed. DOCX is available.',
+        data: { 
+          organization: updatedOrg, 
+          services: savedNewSvcs,
+          firebasePdfUrl,
+          firebaseDocxUrl
+        }
       });
     } catch (error) {
       console.error('Error updating organization:', error);

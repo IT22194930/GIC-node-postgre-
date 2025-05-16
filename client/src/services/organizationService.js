@@ -88,7 +88,15 @@ const organizationService = {
   updateOrganization: async (id, organizationData) => {
     try {
       const response = await axiosInstance.put(`/${id}`, organizationData);
-      return response.data;
+      // Format the data with Firebase URLs similar to createOrganization
+      return {
+        ...response.data,
+        data: {
+          ...response.data.data,
+          firebasePdfUrl: response.data.data?.organization?.pdf_firebase_url || response.data.data?.firebasePdfUrl,
+          firebaseDocxUrl: response.data.data?.organization?.docx_firebase_url || response.data.data?.firebaseDocxUrl
+        }
+      };
     } catch (error) {
       throw error.response?.data || error.message;
     }
