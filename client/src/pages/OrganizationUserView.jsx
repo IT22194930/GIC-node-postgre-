@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import organizationService from '../services/organizationService';
 import Navbar from '../components/Navbar';
 import Swal from 'sweetalert2';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../config/firebase';
 
 const OrganizationUserView = ({ isPending = false }) => {
   const { id } = useParams();
@@ -11,6 +13,8 @@ const OrganizationUserView = ({ isPending = false }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [pdfFile, setPdfFile] = useState(null);
+  const [fileError, setFileError] = useState(null);
 
   useEffect(() => {
     const fetchOrganizationDetails = async () => {
@@ -60,6 +64,34 @@ const OrganizationUserView = ({ isPending = false }) => {
     }
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    
+    // Validate if file exists
+    if (!file) {
+      setFileError('Please select a file');
+      setPdfFile(null);
+      return;
+    }
+    
+    // Validate file type
+    if (file.type !== 'application/pdf') {
+      setFileError('Please upload a PDF file');
+      setPdfFile(null);
+      return;
+    }
+    
+    // Validate file size (limit to 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setFileError('File size must be less than 5MB');
+      setPdfFile(null);
+      return;
+    }
+    
+    setFileError(null);
+    setPdfFile(file);
+  };
+
   const handleDelete = async () => {
     try {
       const result = await Swal.fire({
@@ -98,7 +130,18 @@ const OrganizationUserView = ({ isPending = false }) => {
     try {
       setSubmitting(true);
       
-      await Swal.fire({
+      // Validate that PDF is uploaded
+      if (!pdfFile) {
+        Swal.fire({
+          title: 'Required Document Missing',
+          text: 'Please upload a signed PDF document from the head of the organization',
+          icon: 'error'
+        });
+        setSubmitting(false);
+        return;
+      }
+      
+      const result = await Swal.fire({
         title: 'Submit Organization?',
         text: 'This will submit your organization for review. Are you sure you want to proceed?',
         icon: 'question',
@@ -106,45 +149,65 @@ const OrganizationUserView = ({ isPending = false }) => {
         confirmButtonColor: '#3085d6',
         cancelButtonColor: '#d33',
         confirmButtonText: 'Yes, submit it!'
-      }).then(async (result) => {
-        if (result.isConfirmed) {
-          // Format the data for organization update
-          const organizationData = {
-            province: organization.province,
-            district: organization.district,
-            institutionName: organization.institution_name,
-            websiteUrl: organization.website_url,
-            personalDetails: {
-              name: organization.name,
-              designation: organization.designation,
-              email: organization.email,
-              contactNumber: organization.contact_number
-            },
-            organizationLogoUrl: organization.organization_logo,
-            profileImageUrl: organization.profile_image,
-            // Only include services if they actually exist and have valid data
-            services: organization.services && 
-                     organization.services[0] && 
-                     organization.services[0] !== null && 
-                     organization.services[0].serviceName ? 
-                     organization.services : [],
-            isSubmitted: true, // Update the isSubmitted field to true
-            status: 'pending' // Set the status to pending
-          };
-          
-          // Update the organization with isSubmitted = true
-          await organizationService.updateOrganization(id, organizationData);
-          
-          Swal.fire(
-            'Submitted!',
-            'Your organization has been submitted for review.',
-            'success'
-          );
-          
-          // Navigate to home page after submission
-          navigate('/');
-        }
       });
+      
+      if (result.isConfirmed) {
+        let documentPdfUrl = '';
+        
+        // Upload PDF to Firebase
+        try {
+          const fileName = `organizations/${id}/documents/${Date.now()}_${pdfFile.name}`;
+          const storageRef = ref(storage, fileName);
+          await uploadBytes(storageRef, pdfFile);
+          documentPdfUrl = await getDownloadURL(storageRef);
+        } catch (error) {
+          console.error('Error uploading document:', error);
+          Swal.fire({
+            title: 'Upload Failed',
+            text: 'Failed to upload document. Please try again.',
+            icon: 'error'
+          });
+          setSubmitting(false);
+          return;
+        }
+        
+        // Format the data for organization update
+        const organizationData = {
+          province: organization.province,
+          district: organization.district,
+          institutionName: organization.institution_name,
+          websiteUrl: organization.website_url,
+          personalDetails: {
+            name: organization.name,
+            designation: organization.designation,
+            email: organization.email,
+            contactNumber: organization.contact_number
+          },
+          organizationLogoUrl: organization.organization_logo,
+          profileImageUrl: organization.profile_image,
+          // Only include services if they actually exist and have valid data
+          services: organization.services && 
+                   organization.services[0] && 
+                   organization.services[0] !== null && 
+                   organization.services[0].serviceName ? 
+                   organization.services : [],
+          documentpdf: documentPdfUrl, // Add the document PDF URL (lowercase to match backend)
+          isSubmitted: true, // Update the isSubmitted field to true
+          status: 'pending' // Set the status to pending
+        };
+        
+        // Update the organization with isSubmitted = true
+        await organizationService.updateOrganization(id, organizationData);
+        
+        Swal.fire(
+          'Submitted!',
+          'Your organization has been submitted for review.',
+          'success'
+        );
+        
+        // Navigate to home page after submission
+        navigate('/');
+      }
     } catch (err) {
       console.error('Error submitting organization:', err);
       Swal.fire(
@@ -390,32 +453,63 @@ const OrganizationUserView = ({ isPending = false }) => {
             {getStatusMessage()}
 
             {isPending && (
-              <div className="mb-6 flex justify-center">
-                <button
-                  onClick={handleSubmitToOrganization}
-                  disabled={submitting}
-                  className={`bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-blue-700 transition transform hover:scale-105 text-lg ${
-                    submitting ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                >
-                  {submitting ? (
-                    <span className="flex items-center">
-                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Submitting...
-                    </span>
-                  ) : (
-                    <span className="flex items-center">
-                      Submit Organization for Review 
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </span>
-                  )}
-                </button>
-              </div>
+              <>
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Required Document</h3>
+                  <div className="border rounded-md p-6 bg-gray-50">
+                    <div className="mb-4">
+                      <p className="text-gray-700 font-medium mb-2">
+                        Please upload a signed PDF document from the head of the organization to verify this submission
+                      </p>
+                      <p className="text-sm text-gray-500 mb-4">
+                        The document should be on official letterhead, signed by the head of the organization, and confirm the details provided in this registration.
+                      </p>
+                    </div>
+                    <div className="flex flex-col">
+                      <label htmlFor="pdf-upload" className="block text-sm font-medium text-gray-700 mb-2">
+                        Upload Signed Document (PDF only, max 5MB) *
+                      </label>
+                      <input
+                        type="file"
+                        id="pdf-upload"
+                        accept="application/pdf"
+                        onChange={handleFileChange}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        required
+                      />
+                      {fileError && <p className="mt-2 text-sm text-red-600">{fileError}</p>}
+                      {pdfFile && <p className="mt-2 text-sm text-green-600">File selected: {pdfFile.name}</p>}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mb-6 flex justify-center">
+                  <button
+                    onClick={handleSubmitToOrganization}
+                    disabled={submitting || !pdfFile}
+                    className={`bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-blue-700 transition transform hover:scale-105 text-lg ${
+                      (submitting || !pdfFile) ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {submitting ? (
+                      <span className="flex items-center">
+                        <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Submitting...
+                      </span>
+                    ) : (
+                      <span className="flex items-center">
+                        Submit Organization for Review 
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </>
             )}
 
             <div>
