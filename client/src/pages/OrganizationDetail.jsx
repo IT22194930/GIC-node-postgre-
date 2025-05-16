@@ -320,6 +320,42 @@ const OrganizationDetail = () => {
               </div>
             </div>
 
+            {/* Signed Document */}
+            <div className="mb-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Signed Document</h3>
+              {organization.documentpdf ? (
+                <div className="border rounded-md p-4 flex flex-col items-start bg-gray-50">
+                  <div className="flex items-center mb-3">
+                    <svg className="h-8 w-8 text-red-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    <div>
+                      <p className="font-medium">Signed Document from Organization</p>
+                      <p className="text-sm text-gray-600">Official document signed by the head of organization</p>
+                    </div>
+                  </div>
+                  <a 
+                    href={organization.documentpdf}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                    View Document
+                  </a>
+                </div>
+              ) : (
+                <div className="border rounded-md p-4 flex items-center bg-gray-50">
+                  <svg className="h-8 w-8 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="text-gray-500">No signed document available for this organization</p>
+                </div>
+              )}
+            </div>
+
             {/* Services */}
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-4">Services</h3>
