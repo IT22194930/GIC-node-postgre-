@@ -86,7 +86,7 @@ class ServiceController {
         category, 
         description, 
         requirements,
-        documentPdf,
+        documentpdf,
         isSubmitted = false
       } = req.body;
 
@@ -119,7 +119,7 @@ class ServiceController {
           category,
           description,
           requirements,
-          documentPdf,
+          documentpdf,
           isSubmitted,
           user_id,
           created_at,
@@ -134,7 +134,7 @@ class ServiceController {
         category,
         description,
         requirements || '',
-        documentPdf || null,
+        documentpdf || null,
         isSubmitted,
         userId
       ];
@@ -163,7 +163,7 @@ class ServiceController {
         category, 
         description, 
         requirements,
-        documentPdf,
+        documentpdf,
         isSubmitted
       } = req.body;
 
@@ -198,7 +198,7 @@ class ServiceController {
           category = $2,
           description = $3,
           requirements = $4,
-          documentPdf = $5,
+          documentpdf = $5,
           isSubmitted = $6,
           updated_at = NOW()
         WHERE id = $7
@@ -210,8 +210,8 @@ class ServiceController {
         category,
         description,
         requirements || service.requirements || '',
-        documentPdf !== undefined ? documentPdf : service.documentPdf,
-        isSubmitted !== undefined ? isSubmitted : service.isSubmitted,
+        documentpdf !== undefined ? documentpdf : service.documentpdf,
+        isSubmitted !== undefined ? isSubmitted : service.issubmitted,
         id
       ];
 
