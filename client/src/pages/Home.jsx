@@ -1,17 +1,33 @@
 import React, { useState } from "react";
 import Navbar from "../components/Navbar";
 import OrganizationForm from "../components/OrganizationForm";
+import ServiceForm from "../components/ServiceForm";
 import UserOrganizations from "../components/UserOrganizations";
 import { useAuth } from "../hooks/useAuth";
 
 const Home = () => {
   const { user } = useAuth();
   const [showForm, setShowForm] = useState(false);
+  const [formType, setFormType] = useState("organization"); // "organization" or "service"
+  const [selectedOrganization, setSelectedOrganization] = useState(null);
 
-  const scrollToForm = () => {
+  const scrollToForm = (type = "organization") => {
     setShowForm(true);
+    setFormType(type);
     setTimeout(() => {
-      const formElement = document.getElementById("organization-form");
+      const formElement = document.getElementById("form-section");
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 100);
+  };
+  
+  // Handler for when an organization is created and we want to add services to it
+  const handleOrganizationCreated = (organization) => {
+    setSelectedOrganization(organization);
+    setFormType("service");
+    setTimeout(() => {
+      const formElement = document.getElementById("form-section");
       if (formElement) {
         formElement.scrollIntoView({ behavior: "smooth" });
       }
@@ -34,12 +50,20 @@ const Home = () => {
                 You're logged in as <span className="font-semibold">{user?.email || "your account"}</span>
               </p>
               
-              <button 
-                onClick={scrollToForm}
-                className="bg-white text-blue-700 px-6 py-3 rounded-lg font-medium text-lg shadow-lg hover:bg-blue-50 transition duration-300 transform hover:scale-105"
-              >
-                Register an Organization
-              </button>
+              <div className="flex flex-wrap gap-4">
+                <button 
+                  onClick={() => scrollToForm("organization")}
+                  className="bg-white text-blue-700 px-6 py-3 rounded-lg font-medium text-lg shadow-lg hover:bg-blue-50 transition duration-300"
+                >
+                  Register an Organization
+                </button>
+                <button 
+                  onClick={() => scrollToForm("service")}
+                  className="bg-green-500 text-white px-6 py-3 rounded-lg font-medium text-lg shadow-lg hover:bg-green-600 transition duration-300"
+                >
+                  Add Services
+                </button>
+              </div>
             </div>
             <div className="md:w-2/5 flex justify-center">
               <img 
@@ -64,14 +88,45 @@ const Home = () => {
           </div>
         </div>
         
-        {/* Organization Registration Form */}
-        <div id="organization-form" className={`transition-all duration-500 ${showForm ? 'opacity-100' : 'opacity-100'}`}>
-          <div className="flex items-center mb-8">
-            <div className="bg-green-600 w-1 h-8 mr-4 rounded-full"></div>
-            <h2 className="text-3xl font-bold text-gray-800">Register a New Organization</h2>
+        {/* Forms Section with Tabs */}
+        <div id="form-section" className={`transition-all duration-500 ${showForm ? 'opacity-100' : 'opacity-100'}`}>
+          <div className="flex items-center mb-6">
+            <div className={`w-1 h-8 mr-4 rounded-full ${formType === 'organization' ? 'bg-blue-600' : 'bg-green-600'}`}></div>
+            <h2 className="text-3xl font-bold text-gray-800">
+              {formType === 'organization' ? 'Register a New Organization' : 'Add Services to Organization'}
+            </h2>
           </div>
           
-          <OrganizationForm />
+          {/* Tab Selector */}
+          <div className="flex mb-6 border-b border-gray-200">
+            <button 
+              onClick={() => setFormType("organization")} 
+              className={`py-3 px-6 font-medium text-lg border-b-2 transition-colors ${
+                formType === 'organization' 
+                  ? 'border-blue-600 text-blue-700' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Organization Registration
+            </button>
+            <button 
+              onClick={() => setFormType("service")} 
+              className={`py-3 px-6 font-medium text-lg border-b-2 transition-colors ${
+                formType === 'service' 
+                  ? 'border-green-600 text-green-700' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Add Services
+            </button>
+          </div>
+          
+          {/* Conditional Form Rendering */}
+          {formType === 'organization' ? (
+            <OrganizationForm onOrganizationCreated={handleOrganizationCreated} />
+          ) : (
+            <ServiceForm preSelectedOrganization={selectedOrganization} />
+          )}
         </div>
       </div>
       

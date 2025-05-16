@@ -129,7 +129,17 @@ const UserOrganizations = () => {
     }
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status, issubmitted) => {
+    // If not submitted, show as Draft regardless of status
+    if (issubmitted === false) {
+      return (
+        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+          Draft
+        </span>
+      );
+    }
+    
+    // If submitted, show actual status
     switch (status) {
       case 'pending':
         return (
@@ -152,7 +162,7 @@ const UserOrganizations = () => {
       default:
         return (
           <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
-            {status}
+            {status || 'Unknown'}
           </span>
         );
     }
@@ -216,7 +226,7 @@ const UserOrganizations = () => {
             <div className="flex justify-between items-start mb-3">
               <h3 className="text-lg font-medium">{org.institution_name}</h3>
               <div className="flex gap-2">
-                {getStatusBadge(org.status)}
+                {getStatusBadge(org.status, org.issubmitted)}
               </div>
             </div>
             
@@ -238,7 +248,7 @@ const UserOrganizations = () => {
             <div className="border-t pt-3 mt-3 flex justify-between">
               <div>
                 <Link
-                  to={`/organizations/${org.id}/details`}
+                  to={org.issubmitted === false ? `/pending-organizations/${org.id}/details` : `/organizations/${org.id}/details`}
                   className="text-blue-600 hover:text-blue-800 mr-4"
                 >
                   View Details

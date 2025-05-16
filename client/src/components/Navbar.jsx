@@ -30,7 +30,9 @@ const Navbar = () => {
     try {
       setLoadingCount(true);
       const response = await organizationService.getAllOrganizations("pending");
-      setPendingCount(response.data.length);
+      // Filter to only include organizations where issubmitted is true
+      const submittedPendingOrgs = response.data.filter(org => org.issubmitted === true);
+      setPendingCount(submittedPendingOrgs.length);
     } catch (error) {
       console.error("Error fetching pending organizations count:", error);
     } finally {

@@ -411,7 +411,7 @@ class OrganizationController {
         organizationLogoUrl,
         profileImage,
         profileImageUrl,
-        documentPdf,
+        documentpdf,
         services,
         isSubmitted
       } = req.body;
@@ -433,7 +433,7 @@ class OrganizationController {
           contact_number  = $8,
           organization_logo = $9,
           profile_image   = $10,
-          documentPdf     = $11,
+          documentpdf     = $11,
           isSubmitted     = $12,
           updated_at      = NOW()
         WHERE id = $13
@@ -450,8 +450,8 @@ class OrganizationController {
         contactNumber,
         organizationLogo || organizationLogoUrl || org.organization_logo,
         profileImage || profileImageUrl || org.profile_image,
-        documentPdf !== undefined ? documentPdf : org.documentPdf,
-        isSubmitted !== undefined ? isSubmitted : org.isSubmitted,
+        documentpdf !== undefined ? documentpdf : org.documentpdf,
+        isSubmitted !== undefined ? isSubmitted : org.issubmitted,
         id
       ];
       const updRes = await OrganizationController.query(updSql, updParams);
@@ -465,14 +465,30 @@ class OrganizationController {
         return res.status(400).json({ success: false, message: 'Invalid services format' });
       }
       await OrganizationController.query('DELETE FROM services WHERE organization_id = $1', [id]);
-      const newSvcs = await Promise.all(
-        parsedSvcs.map(s =>
-          OrganizationController.query(svcSql, [
-            id, s.serviceName, s.category, s.description, s.requirements
-          ])
-        )
-      );
-      const savedNewSvcs = newSvcs.map(r => r.rows[0]);
+      
+      let savedNewSvcs = [];
+      
+      // Only insert services if we have valid ones
+      if (parsedSvcs.length > 0 && parsedSvcs[0] && parsedSvcs[0].serviceName) {
+        // Define the SQL for inserting services
+        const svcSql = `
+          INSERT INTO services (
+            organization_id, service_name, category,
+            description, requirements, created_at, updated_at
+          ) VALUES (
+            $1, $2, $3, $4, $5, NOW(), NOW()
+          ) RETURNING *
+        `;
+        
+        const newSvcs = await Promise.all(
+          parsedSvcs.map(s =>
+            OrganizationController.query(svcSql, [
+              id, s.serviceName, s.category, s.description, s.requirements
+            ])
+          )
+        );
+        savedNewSvcs = newSvcs.map(r => r.rows[0]);
+      }
 
       return res.status(200).json({
         success: true,
