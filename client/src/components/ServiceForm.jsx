@@ -1,20 +1,60 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import organizationService from '../services/organizationService';
 import servicesService from '../services/servicesService';
 
 const ServiceForm = () => {
   const [organizations, setOrganizations] = useState([]);
-  const [selectedOrganization, setSelectedOrganization] = useState('');
+  const [selectedOrganization, setSelectedOrganization] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredOrganizations, setFilteredOrganizations] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [services, setServices] = useState([{
     serviceName: '', category: '', description: '', requirements: ''
   }]);
+  
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     fetchUserOrganizations();
+    
+    // Add click outside listener to close dropdown
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
+
+  // Filter organizations based on search term
+  useEffect(() => {
+    if (!searchTerm) {
+      setFilteredOrganizations([]);
+      return;
+    }
+    
+    const lowerCaseSearch = searchTerm.toLowerCase();
+    const filtered = organizations.filter(org => {
+      const institutionName = (org.institution_name || '').toLowerCase();
+      const province = (org.province || '').toLowerCase();
+      const district = (org.district || '').toLowerCase();
+      
+      return (
+        institutionName.includes(lowerCaseSearch) || 
+        province.includes(lowerCaseSearch) || 
+        district.includes(lowerCaseSearch)
+      );
+    });
+    
+    setFilteredOrganizations(filtered);
+  }, [searchTerm, organizations]);
 
   const fetchUserOrganizations = async () => {
     setIsLoading(true);
@@ -31,8 +71,15 @@ const ServiceForm = () => {
     }
   };
 
-  const handleOrganizationChange = (e) => {
-    setSelectedOrganization(e.target.value);
+  const handleOrganizationSearch = (e) => {
+    setSearchTerm(e.target.value);
+    setShowDropdown(true);
+  };
+
+  const handleOrganizationSelect = (org) => {
+    setSelectedOrganization(org);
+    setSearchTerm(org.institution_name);
+    setShowDropdown(false);
   };
 
   const handleServiceChange = (index, field, value) => {
@@ -75,7 +122,7 @@ const ServiceForm = () => {
       // Process each service
       for (const service of services) {
         const serviceData = {
-          organization_id: selectedOrganization,
+          organization_id: selectedOrganization.id,
           serviceName: service.serviceName,
           category: service.category,
           description: service.description,
@@ -88,7 +135,8 @@ const ServiceForm = () => {
       toast.success('Services added successfully!');
       
       // Reset form
-      setSelectedOrganization('');
+      setSelectedOrganization(null);
+      setSearchTerm('');
       setServices([{
         serviceName: '',
         category: '',
@@ -120,7 +168,7 @@ const ServiceForm = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-b-lg shadow-lg p-6 border-t-0">
-        {/* Organization Selection */}
+        {/* Organization Search */}
         <div className="mb-6 pb-6 border-b border-gray-200">
           <div className="inline-flex items-center bg-blue-600 text-white px-4 py-1 rounded-full font-medium text-sm mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -147,21 +195,75 @@ const ServiceForm = () => {
               </div>
             </div>
           ) : (
-            <div>
-              <label className="text-gray-700 font-medium block mb-2">Select an Organization *</label>
-              <select
-                value={selectedOrganization}
-                onChange={handleOrganizationChange}
-                required
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring focus:ring-blue-300 focus:border-blue-400 bg-white"
-              >
-                <option value="">-- Select an organization --</option>
-                {organizations.map(org => (
-                  <option key={org.id} value={org.id}>
-                    {org.institution_name} ({org.province}, {org.district})
-                  </option>
-                ))}
-              </select>
+            <div className="relative" ref={dropdownRef}>
+              <label className="text-gray-700 font-medium block mb-2">Search for an Organization *</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Type organization name, province, or district..."
+                  value={searchTerm}
+                  onChange={handleOrganizationSearch}
+                  onFocus={() => setShowDropdown(true)}
+                  className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring focus:ring-blue-300 focus:border-blue-400"
+                />
+                {selectedOrganization && (
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedOrganization(null);
+                        setSearchTerm('');
+                      }}
+                      className="text-gray-400 hover:text-gray-500 focus:outline-none"
+                    >
+                      <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {/* Dropdown with search results */}
+              {showDropdown && searchTerm && filteredOrganizations.length > 0 && (
+                <ul className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
+                  {filteredOrganizations.map((org) => (
+                    <li
+                      key={org.id}
+                      className="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-100"
+                      onClick={() => handleOrganizationSelect(org)}
+                    >
+                      <div className="flex items-center">
+                        <span className="font-medium block truncate">{org.institution_name}</span>
+                      </div>
+                      <span className="text-gray-500 block text-sm">
+                        {org.province}, {org.district}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              
+              {showDropdown && searchTerm && filteredOrganizations.length === 0 && (
+                <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 sm:text-sm">
+                  <p className="py-2 px-3 text-gray-500">No organizations found</p>
+                </div>
+              )}
+              
+              {/* Selected organization display */}
+              {selectedOrganization && (
+                <div className="mt-3 bg-green-50 border border-green-200 rounded-md p-3">
+                  <div className="font-medium text-green-800">{selectedOrganization.institution_name}</div>
+                  <div className="text-sm text-green-600">
+                    {selectedOrganization.province}, {selectedOrganization.district}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -260,9 +362,9 @@ const ServiceForm = () => {
         <div>
           <button
             type="submit"
-            disabled={isSubmitting || organizations.length === 0}
+            disabled={isSubmitting || organizations.length === 0 || !selectedOrganization}
             className={`w-full py-3 rounded text-white font-bold shadow ${
-              isSubmitting || organizations.length === 0
+              isSubmitting || organizations.length === 0 || !selectedOrganization
                 ? 'bg-gray-400 cursor-not-allowed' 
                 : 'bg-green-600 hover:bg-green-700'
             }`}
