@@ -581,43 +581,76 @@ const OrganizationUserView = ({ isPending = false }) => {
             {isPending && (
               <>
                 <div className="mb-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                    <svg className="h-6 w-6 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
                     Required Document
                   </h3>
-                  <div className="border rounded-md p-6 bg-gray-50">
-                    <div className="mb-4">
-                      <p className="text-gray-700 font-medium mb-2">
-                        Please upload a signed PDF document from the head of the
-                        organization to verify this submission
-                      </p>
-                      <p className="text-sm text-gray-500 mb-4">
-                        The document should be on official letterhead, signed by
-                        the head of the organization, and confirm the details
-                        provided in this registration.
-                      </p>
+                  <div className="border-2 border-blue-100 rounded-lg p-6 bg-white shadow-sm hover:shadow-md transition-shadow duration-300">
+                    <div className="mb-5">
+                      <div className="flex items-center mb-3">
+                        <svg className="h-5 w-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-gray-800 font-medium">
+                          Please upload a signed PDF document from the head of the
+                          organization to verify this submission
+                        </p>
+                      </div>
+                      <div className="ml-7">
+                        <p className="text-sm text-gray-600 bg-blue-50 p-3 rounded-md border-l-4 border-blue-400">
+                          The document should be on official letterhead, signed by
+                          the head of the organization, and confirm the details
+                          provided in this registration.
+                        </p>
+                      </div>
                     </div>
                     <div className="flex flex-col">
                       <label
                         htmlFor="pdf-upload"
-                        className="block text-sm font-medium text-gray-700 mb-2"
+                        className="block text-sm font-medium text-gray-700 mb-2 flex items-center"
                       >
-                        Upload Signed Document (PDF only, max 5MB) *
+                        <svg className="h-4 w-4 text-blue-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        Upload Signed Document (PDF only, max 5MB) <span className="text-red-500 ml-1">*</span>
                       </label>
-                      <input
-                        type="file"
-                        id="pdf-upload"
-                        accept="application/pdf"
-                        onChange={handleFileChange}
-                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                        required
-                      />
+                      <div className="relative border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 p-4 hover:bg-gray-100 transition-colors">
+                        <input
+                          type="file"
+                          id="pdf-upload"
+                          accept="application/pdf"
+                          onChange={handleFileChange}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                          required
+                        />
+                        <div className="flex flex-col items-center justify-center py-2">
+                          <svg className="h-10 w-10 text-blue-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <p className="text-sm font-medium text-blue-600">Click or drag file to upload</p>
+                          <p className="text-xs text-gray-500">PDF format only, max 5MB</p>
+                        </div>
+                      </div>
                       {fileError && (
-                        <p className="mt-2 text-sm text-red-600">{fileError}</p>
+                        <p className="mt-2 text-sm text-red-600 flex items-center">
+                          <svg className="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          {fileError}
+                        </p>
                       )}
                       {pdfFile && (
-                        <p className="mt-2 text-sm text-green-600">
-                          File selected: {pdfFile.name}
-                        </p>
+                        <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-100 flex items-center">
+                          <svg className="h-6 w-6 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <div>
+                            <p className="text-sm font-medium text-green-700">File selected:</p>
+                            <p className="text-xs text-green-600">{pdfFile.name}</p>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
