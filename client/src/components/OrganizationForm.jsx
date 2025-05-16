@@ -7,17 +7,15 @@ import { storage } from '../config/firebase';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL;
 
-const OrganizationForm = () => {
+const OrganizationForm = ({ onOrganizationCreated }) => {
   const [districts, setDistricts] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fileUploading, setFileUploading] = useState({ logo: false, profile: false });
-  const [services, setServices] = useState([{
-    serviceName: '', category: '', description: '', requirements: ''
-  }]);
   const [pdfUrl, setPdfUrl] = useState('');
   const [docxUrl, setDocxUrl] = useState('');
   const [firebasePdfUrl, setFirebasePdfUrl] = useState('');
   const [firebaseDocxUrl, setFirebaseDocxUrl] = useState('');
+  const [newlyCreatedOrg, setNewlyCreatedOrg] = useState(null);
   const [formData, setFormData] = useState({
     province: '', district: '', institutionName: '', websiteUrl: '',
     personalDetails: { name: '', designation: '', email: '', contactNumber: '' },
@@ -145,26 +143,6 @@ const OrganizationForm = () => {
     return newFormData;
   };
 
-  const handleServiceChange = (index, field, value) => {
-    setServices(prev =>
-      prev.map((svc, i) => (i === index ? { ...svc, [field]: value } : svc))
-    );
-  };
-
-  const addService = () => {
-    setServices(prev => [...prev, {
-      serviceName: '',
-      category: '',
-      description: '',
-      requirements: ''
-    }]);
-  };
-
-  const removeService = (index) => {
-    if (services.length <= 1) return;
-    setServices(prev => prev.filter((_, i) => i !== index));
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -178,12 +156,6 @@ const OrganizationForm = () => {
       const pd = formData.personalDetails;
       if (!pd.name || !pd.designation || !pd.email || !pd.contactNumber) {
         toast.error('Please fill in all required personal details');
-        setIsSubmitting(false);
-        return;
-      }
-      if (!services[0].serviceName || !services[0].category ||
-          !services[0].description || !services[0].requirements) {
-        toast.error('Please fill in at least one service');
         setIsSubmitting(false);
         return;
       }
@@ -208,11 +180,19 @@ const OrganizationForm = () => {
         personalDetails: updatedFormData.personalDetails,
         organizationLogoUrl: updatedFormData.organizationLogoUrl,
         profileImageUrl: updatedFormData.profileImageUrl,
-        services
+        services: [] // Empty services array
       };
 
       try {
         const response = await organizationService.createOrganization(organizationData);
+        
+        // Save the newly created organization for the "Add Services" button
+        setNewlyCreatedOrg({
+          id: response.data?.organization?.id,
+          institution_name: response.data?.organization?.institution_name || organizationData.institutionName,
+          province: response.data?.organization?.province || organizationData.province,
+          district: response.data?.organization?.district || organizationData.district
+        });
         
         if (response.firebasePdfUrl) {
           setFirebasePdfUrl(response.firebasePdfUrl);
@@ -247,12 +227,12 @@ const OrganizationForm = () => {
           organizationLogo: null,
           profileImage: null
         });
-        setServices([{
-          serviceName: '',
-          category: '',
-          description: '',
-          requirements: ''
-        }]);
+        
+        // If a callback was provided, call it with the new organization
+        if (onOrganizationCreated && response.data?.organization) {
+          onOrganizationCreated(response.data.organization);
+        }
+        
       } catch (err) {
         console.error('API error:', err);
         
@@ -268,6 +248,12 @@ const OrganizationForm = () => {
       toast.error(err.message || 'Error submitting organization details');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+  
+  const handleAddServices = () => {
+    if (onOrganizationCreated && newlyCreatedOrg) {
+      onOrganizationCreated(newlyCreatedOrg);
     }
   };
 
@@ -514,96 +500,6 @@ const OrganizationForm = () => {
           </div>
         </div>
 
-        {/* Step 4: Services Offered */}
-        <div className="mb-6">
-          <div className="inline-flex items-center bg-orange-500 text-white px-4 py-1 rounded-full font-medium text-sm mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-            </svg>
-            Step 4: Services Offered
-          </div>
-          <div className="space-y-4">
-            {services.map((svc, idx) => (
-              <div key={idx} className="border border-gray-200 p-4 rounded bg-white shadow-sm">
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-base font-medium text-blue-700 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M6 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7zm0 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-                    </svg>
-                    Service {idx + 1}
-                  </h4>
-                  <button 
-                    type="button" 
-                    onClick={() => removeService(idx)}
-                    className="text-red-500 hover:text-red-700 bg-red-50 rounded-full p-1"
-                    disabled={services.length <= 1}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="grid md:grid-cols-2 gap-3 mb-3">
-                  <div>
-                    <label className="text-gray-700 font-medium block mb-1">Service Name *</label>
-                    <input
-                      type="text"
-                      placeholder="Service Name"
-                      value={svc.serviceName}
-                      onChange={e => handleServiceChange(idx, 'serviceName', e.target.value)}
-                      required
-                      className="w-full p-2 border border-gray-300 rounded focus:ring focus:ring-blue-300 focus:border-blue-400"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-gray-700 font-medium block mb-1">Category *</label>
-                    <input
-                      type="text"
-                      placeholder="Category"
-                      value={svc.category}
-                      onChange={e => handleServiceChange(idx, 'category', e.target.value)}
-                      required
-                      className="w-full p-2 border border-gray-300 rounded focus:ring focus:ring-blue-300 focus:border-blue-400"
-                    />
-                  </div>
-                </div>
-                <div className="mb-3">
-                  <label className="text-gray-700 font-medium block mb-1">Description *</label>
-                  <textarea
-                    placeholder="Provide a detailed description of the service"
-                    value={svc.description}
-                    onChange={e => handleServiceChange(idx, 'description', e.target.value)}
-                    required
-                    className="w-full p-2 border border-gray-300 rounded focus:ring focus:ring-blue-300 focus:border-blue-400"
-                    rows={2}
-                  />
-                </div>
-                <div>
-                  <label className="text-gray-700 font-medium block mb-1">Requirements *</label>
-                  <textarea
-                    placeholder="List any requirements for this service"
-                    value={svc.requirements}
-                    onChange={e => handleServiceChange(idx, 'requirements', e.target.value)}
-                    required
-                    className="w-full p-2 border border-gray-300 rounded focus:ring focus:ring-blue-300 focus:border-blue-400"
-                    rows={2}
-                  />
-                </div>
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={addService}
-              className="w-full py-2 border-dashed border-2 border-blue-300 rounded hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center text-blue-600 font-medium"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
-              </svg>
-              Add Another Service
-            </button>
-          </div>
-        </div>
-
         {/* Submit Button */}
         <div>
           <button
@@ -628,60 +524,77 @@ const OrganizationForm = () => {
         </div>
       </form>
 
-      {/* Document Links */}
-      {(firebasePdfUrl || firebaseDocxUrl || pdfUrl || docxUrl) && (
-        <div className="mt-6 p-4 bg-blue-50 rounded border border-blue-200 shadow">
-          <h3 className="font-medium text-lg text-blue-800 mb-3 flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Your Registration Documents
-          </h3>
+      {/* Document Links and Add Services Button */}
+      {(firebasePdfUrl || firebaseDocxUrl || pdfUrl || docxUrl || newlyCreatedOrg) && (
+        <div className="mt-6">
+          {(firebasePdfUrl || firebaseDocxUrl || pdfUrl || docxUrl) && (
+            <div className="p-4 mb-4 bg-blue-50 rounded border border-blue-200 shadow">
+              <h3 className="font-medium text-lg text-blue-800 mb-3 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Your Registration Documents
+              </h3>
+              
+              <div className="space-y-2">
+                {firebasePdfUrl && (
+                  <a
+                    href={firebasePdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center p-2 bg-white rounded border border-gray-200 hover:border-blue-400 hover:bg-blue-50"
+                  >
+                    <div className="bg-red-100 p-1 rounded">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h4 className="font-medium text-gray-800">Registration PDF</h4>
+                      <p className="text-xs text-gray-500">View or download your registration document</p>
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-auto text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </a>
+                )}
+                {firebaseDocxUrl && (
+                  <a
+                    href={firebaseDocxUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center p-2 bg-white rounded border border-gray-200 hover:border-blue-400 hover:bg-blue-50"
+                  >
+                    <div className="bg-blue-100 p-1 rounded">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h4 className="font-medium text-gray-800">Registration DOCX</h4>
+                      <p className="text-xs text-gray-500">Download your registration document</p>
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-auto text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
           
-          <div className="space-y-2">
-            {firebasePdfUrl && (
-              <a
-                href={firebasePdfUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center p-2 bg-white rounded border border-gray-200 hover:border-blue-400 hover:bg-blue-50"
-              >
-                <div className="bg-red-100 p-1 rounded">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h4 className="font-medium text-gray-800">Registration PDF</h4>
-                  <p className="text-xs text-gray-500">View or download your registration document</p>
-                </div>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-auto text-blue-600" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </a>
-            )}
-            {firebaseDocxUrl && (
-              <a
-                href={firebaseDocxUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center p-2 bg-white rounded border border-gray-200 hover:border-blue-400 hover:bg-blue-50"
-              >
-                <div className="bg-blue-100 p-1 rounded">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h4 className="font-medium text-gray-800">Registration DOCX</h4>
-                  <p className="text-xs text-gray-500">Download your registration document</p>
-                </div>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-auto text-blue-600" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </a>
-            )}
-          </div>
+          {newlyCreatedOrg && (
+            <button
+              type="button"
+              onClick={handleAddServices}
+              className="w-full py-3 rounded text-white font-bold shadow bg-green-600 hover:bg-green-700 flex justify-center items-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
+              </svg>
+              Add Services to {newlyCreatedOrg.institution_name}
+            </button>
+          )}
         </div>
       )}
     </div>

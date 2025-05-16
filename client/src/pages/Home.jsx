@@ -9,10 +9,23 @@ const Home = () => {
   const { user } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [formType, setFormType] = useState("organization"); // "organization" or "service"
+  const [selectedOrganization, setSelectedOrganization] = useState(null);
 
   const scrollToForm = (type = "organization") => {
     setShowForm(true);
     setFormType(type);
+    setTimeout(() => {
+      const formElement = document.getElementById("form-section");
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 100);
+  };
+  
+  // Handler for when an organization is created and we want to add services to it
+  const handleOrganizationCreated = (organization) => {
+    setSelectedOrganization(organization);
+    setFormType("service");
     setTimeout(() => {
       const formElement = document.getElementById("form-section");
       if (formElement) {
@@ -110,9 +123,9 @@ const Home = () => {
           
           {/* Conditional Form Rendering */}
           {formType === 'organization' ? (
-            <OrganizationForm />
+            <OrganizationForm onOrganizationCreated={handleOrganizationCreated} />
           ) : (
-            <ServiceForm />
+            <ServiceForm preSelectedOrganization={selectedOrganization} />
           )}
         </div>
       </div>

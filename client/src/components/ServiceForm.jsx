@@ -1,24 +1,52 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import organizationService from '../services/organizationService';
 import servicesService from '../services/servicesService';
 
-const ServiceForm = () => {
+
+const ServiceForm = ({ preSelectedOrganization = null }) => {
   const [organizations, setOrganizations] = useState([]);
-  const [selectedOrganization, setSelectedOrganization] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedOrganization, setSelectedOrganization] = useState(preSelectedOrganization);
+  const [searchTerm, setSearchTerm] = useState(preSelectedOrganization?.institution_name || '');
   const [filteredOrganizations, setFilteredOrganizations] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [services, setServices] = useState([{
-    serviceName: '', category: '', description: '', requirements: ''
+    service_name: '', category: '', description: '', requirements: ''
   }]);
   
   const dropdownRef = useRef(null);
 
+  // Define fetchOrganizations to get all approved organizations
+  const fetchOrganizations = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Get all approved organizations instead of just the user's organizations
+      const response = await organizationService.getAllOrganizations('approved');
+      
+      let filteredOrgs = response.data;
+      
+      // If we have a preSelectedOrganization, make sure it's included in the list
+      if (preSelectedOrganization) {
+        const orgExists = filteredOrgs.some(org => org.id === preSelectedOrganization.id);
+        if (!orgExists) {
+          filteredOrgs = [...filteredOrgs, preSelectedOrganization];
+        }
+      }
+      
+      setOrganizations(filteredOrgs);
+    } catch (error) {
+      console.error('Failed to fetch organizations:', error);
+      toast.error('Failed to load organizations');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [preSelectedOrganization]);
+
+  // Load organizations on component mount
   useEffect(() => {
-    fetchUserOrganizations();
+    fetchOrganizations();
     
     // Add click outside listener to close dropdown
     const handleClickOutside = (event) => {
@@ -31,7 +59,15 @@ const ServiceForm = () => {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+  }, [fetchOrganizations]);
+  
+  // Set the preSelectedOrganization if it changes
+  useEffect(() => {
+    if (preSelectedOrganization) {
+      setSelectedOrganization(preSelectedOrganization);
+      setSearchTerm(preSelectedOrganization.institution_name || '');
+    }
+  }, [preSelectedOrganization]);
 
   // Filter organizations based on search term
   useEffect(() => {
@@ -56,21 +92,6 @@ const ServiceForm = () => {
     setFilteredOrganizations(filtered);
   }, [searchTerm, organizations]);
 
-  const fetchUserOrganizations = async () => {
-    setIsLoading(true);
-    try {
-      const response = await organizationService.getUserOrganizations();
-      // Only show approved organizations
-      const approvedOrgs = response.data.filter(org => org.status === 'approved');
-      setOrganizations(approvedOrgs);
-    } catch (error) {
-      console.error('Failed to fetch organizations:', error);
-      toast.error('Failed to load your organizations');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleOrganizationSearch = (e) => {
     setSearchTerm(e.target.value);
     setShowDropdown(true);
@@ -90,7 +111,7 @@ const ServiceForm = () => {
 
   const addService = () => {
     setServices(prev => [...prev, {
-      serviceName: '',
+      service_name: '',
       category: '',
       description: '',
       requirements: ''
@@ -110,7 +131,7 @@ const ServiceForm = () => {
       return;
     }
 
-    if (!services[0].serviceName || !services[0].category ||
+    if (!services[0].service_name || !services[0].category ||
         !services[0].description || !services[0].requirements) {
       toast.error('Please fill in at least one service');
       return;
@@ -123,7 +144,7 @@ const ServiceForm = () => {
       for (const service of services) {
         const serviceData = {
           organization_id: selectedOrganization.id,
-          serviceName: service.serviceName,
+          service_name: service.service_name,
           category: service.category,
           description: service.description,
           requirements: service.requirements
@@ -138,7 +159,7 @@ const ServiceForm = () => {
       setSelectedOrganization(null);
       setSearchTerm('');
       setServices([{
-        serviceName: '',
+        service_name: '',
         category: '',
         description: '',
         requirements: ''
@@ -163,7 +184,7 @@ const ServiceForm = () => {
           <h1 className="text-2xl font-bold text-white ml-3">Add Services to Organization</h1>
         </div>
         <p className="text-green-100">
-          Add new services to your approved organizations. Select an organization and define the services you offer.
+          Add new services to any approved organization. Select an organization and define the services you offer.
         </p>
       </div>
 
@@ -182,7 +203,7 @@ const ServiceForm = () => {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
               <span className="ml-2 text-gray-600">Loading organizations...</span>
             </div>
-          ) : organizations.length === 0 ? (
+          ) : organizations.length === 0 && !preSelectedOrganization ? (
             <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 text-yellow-700">
               <div className="flex">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -191,6 +212,32 @@ const ServiceForm = () => {
                 <div>
                   <p className="font-medium">No approved organizations found</p>
                   <p className="text-sm mt-1">Please register an organization first and wait for admin approval.</p>
+                </div>
+              </div>
+            </div>
+          ) : preSelectedOrganization ? (
+            <div className="mb-4">
+              <label className="text-gray-700 font-medium block mb-2">Selected Organization</label>
+              <div className="bg-green-50 border border-green-200 rounded-md p-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <div className="font-medium text-green-800 text-lg">{preSelectedOrganization.institution_name}</div>
+                    <div className="text-green-600">
+                      {preSelectedOrganization.province}, {preSelectedOrganization.district}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedOrganization(null);
+                      setSearchTerm('');
+                    }}
+                    className="text-gray-400 hover:text-gray-500 focus:outline-none bg-white rounded-full p-2 hover:bg-gray-50"
+                  >
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>
@@ -256,7 +303,7 @@ const ServiceForm = () => {
               )}
               
               {/* Selected organization display */}
-              {selectedOrganization && (
+              {selectedOrganization && !preSelectedOrganization && (
                 <div className="mt-3 bg-green-50 border border-green-200 rounded-md p-3">
                   <div className="font-medium text-green-800">{selectedOrganization.institution_name}</div>
                   <div className="text-sm text-green-600">
@@ -303,8 +350,8 @@ const ServiceForm = () => {
                     <input
                       type="text"
                       placeholder="Service Name"
-                      value={svc.serviceName}
-                      onChange={e => handleServiceChange(idx, 'serviceName', e.target.value)}
+                      value={svc.service_name}
+                      onChange={e => handleServiceChange(idx, 'service_name', e.target.value)}
                       required
                       className="w-full p-2 border border-gray-300 rounded focus:ring focus:ring-green-300 focus:border-green-400"
                     />
@@ -362,9 +409,9 @@ const ServiceForm = () => {
         <div>
           <button
             type="submit"
-            disabled={isSubmitting || organizations.length === 0 || !selectedOrganization}
+            disabled={isSubmitting || (!preSelectedOrganization && (organizations.length === 0 || !selectedOrganization))}
             className={`w-full py-3 rounded text-white font-bold shadow ${
-              isSubmitting || organizations.length === 0 || !selectedOrganization
+              isSubmitting || (!preSelectedOrganization && (organizations.length === 0 || !selectedOrganization))
                 ? 'bg-gray-400 cursor-not-allowed' 
                 : 'bg-green-600 hover:bg-green-700'
             }`}

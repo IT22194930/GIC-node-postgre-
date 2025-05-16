@@ -82,7 +82,7 @@ class ServiceController {
     try {
       const { 
         organization_id, 
-        serviceName, 
+        service_name, // Changed to match the front-end and database schema 
         category, 
         description, 
         requirements,
@@ -91,7 +91,7 @@ class ServiceController {
       } = req.body;
 
       // Validate required fields
-      if (!organization_id || !serviceName || !category || !description) {
+      if (!organization_id || !service_name || !category || !description) {
         return res.status(400).json({
           success: false,
           message: 'Missing required fields'
@@ -130,7 +130,7 @@ class ServiceController {
 
       const serviceParams = [
         organization_id,
-        serviceName,
+        service_name,
         category,
         description,
         requirements || '',
